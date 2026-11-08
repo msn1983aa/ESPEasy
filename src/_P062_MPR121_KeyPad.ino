@@ -7,8 +7,16 @@
 
 // ESPEasy Plugin to scan a 12 key touch pad chip MPR121
 // written by Jochen Krapf (jk@nerd2nerd.org)
-// 2020-10-14 tonhuisman: Added settings for global and per-sensor sensitivity
-//                        and getting 'calibration' touch pressure data (current, min, max)
+
+/** Changelog:
+ * 2025-06-14 tonhuisman: Add support for Custom Value Type per task value
+ * 2025-01-12 tonhuisman: Add support for MQTT AutoDiscovery (not supported for Keypad)
+ *                        Update changelog
+ * 2021-12-29 tonhuisman: Add setting for panel sensitivity, as requested in https://github.com/letscontrolit/ESPEasy/issues/3828
+ *                        Reformat source using Uncrustify
+ * 2020-10-14 tonhuisman: Added settings for global and per-sensor sensitivity
+ *                        and getting 'calibration' touch pressure data (current, min, max)
+ */
 
 // ScanCode;
 // Value 1...12 for the key number
@@ -19,21 +27,20 @@
 // If more than one key is pressed, the value is sum of all KeyMap-values
 
 
-#define PLUGIN_062
-#define PLUGIN_ID_062         62
-#define PLUGIN_NAME_062       "Keypad - MPR121 Touch [TESTING]"
-#define PLUGIN_VALUENAME1_062 "ScanCode"
+# define PLUGIN_062
+# define PLUGIN_ID_062         62
+# define PLUGIN_NAME_062       "Keypad - MPR121 Touch"
+# define PLUGIN_VALUENAME1_062 "ScanCode"
 
 
+# include "src/PluginStructs/P062_data_struct.h"
 
-#include "src/PluginStructs/P062_data_struct.h"
+# define P062_FLAGS_USE_CALIBRATION    0               // Set in P062_CONFIG_FLAGS
 
-#define P062_FLAGS_USE_CALIBRATION    0   // Set in P062_CONFIG_FLAGS
+# define P062_CONFIG_FLAGS             PCONFIG_LONG(0) // 0-31 flags
 
-#define P062_CONFIG_FLAGS             PCONFIG_LONG(0)    // 0-31 flags
-
-#define P062_DEFAULT_TOUCH_TRESHOLD   12 // Defaults got from MPR_121 source
-#define P062_DEFAULT_RELEASE_TRESHOLD 6
+# define P062_DEFAULT_TOUCH_TRESHOLD   12              // Defaults got from MPR_121 source
+# define P062_DEFAULT_RELEASE_TRESHOLD 6
 
 boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
 {
@@ -43,18 +50,16 @@ boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
     {
-      Device[++deviceCount].Number           = PLUGIN_ID_062;
-      Device[deviceCount].Type               = DEVICE_TYPE_I2C;
-      Device[deviceCount].Ports              = 0;
-      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_SWITCH;
-      Device[deviceCount].PullUpOption       = false;
-      Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].FormulaOption      = false;
-      Device[deviceCount].ValueCount         = 1;
-      Device[deviceCount].SendDataOption     = true;
-      Device[deviceCount].TimerOption        = true;
-      Device[deviceCount].TimerOptional      = true;
-      Device[deviceCount].GlobalSyncOption   = true;
+      auto& dev = Device[++deviceCount];
+      dev.Number             = PLUGIN_ID_062;
+      dev.Type               = DEVICE_TYPE_I2C;
+      dev.VType              = Sensor_VType::SENSOR_TYPE_SWITCH;
+      dev.ValueCount         = 1;
+      dev.SendDataOption     = true;
+      dev.TimerOption        = true;
+      dev.TimerOptional      = true;
+      dev.ExitTaskBeforeSave = false;
+      dev.CustomVTypeVar     = true;
       break;
     }
 
@@ -70,10 +75,27 @@ boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
       break;
     }
 
+    # if FEATURE_MQTT_DISCOVER || FEATURE_CUSTOM_TASKVAR_VTYPE
+    case PLUGIN_GET_DISCOVERY_VTYPES:
+    {
+      #  if FEATURE_CUSTOM_TASKVAR_VTYPE
+
+      for (uint8_t i = 0; i < event->Par5; ++i) {
+        event->ParN[i] = ExtraTaskSettings.getTaskVarCustomVType(i);  // Custom/User selection
+      }
+      #  else // if FEATURE_CUSTOM_TASKVAR_VTYPE
+      event->Par1 = static_cast<int>(Sensor_VType::SENSOR_TYPE_NONE); // Not yet supported
+      #  endif // if FEATURE_CUSTOM_TASKVAR_VTYPE
+      success = true;
+      break;
+    }
+    # endif // if FEATURE_MQTT_DISCOVER || FEATURE_CUSTOM_TASKVAR_VTYPE
+
     case PLUGIN_I2C_HAS_ADDRESS:
     case PLUGIN_WEBFORM_SHOW_I2C_PARAMS:
     {
-      const int i2cAddressValues[] = { 0x5A, 0x5B, 0x5C, 0x5D };
+      const uint8_t i2cAddressValues[] = { 0x5A, 0x5B, 0x5C, 0x5D };
+
       if (function == PLUGIN_WEBFORM_SHOW_I2C_PARAMS) {
         addFormSelectorI2C(F("i2c_addr"), 4, i2cAddressValues, PCONFIG(0));
       } else {
@@ -82,41 +104,62 @@ boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
       break;
     }
 
+    # if FEATURE_I2C_GET_ADDRESS
+    case PLUGIN_I2C_GET_ADDRESS:
+    {
+      event->Par1 = PCONFIG(0);
+      success     = true;
+      break;
+    }
+    # endif // if FEATURE_I2C_GET_ADDRESS
+
     case PLUGIN_WEBFORM_LOAD:
     {
       addFormCheckBox(F("ScanCode"), F("scancode"), PCONFIG(1));
 
       addFormSubHeader(F("Sensitivity"));
       {
-        uint8_t touch_treshold   = PCONFIG(2);
-        if(touch_treshold == 0) {
-          touch_treshold = P062_DEFAULT_TOUCH_TRESHOLD; //default value
+        uint8_t touch_treshold = PCONFIG(2);
+
+        if (touch_treshold == 0) {
+          touch_treshold = P062_DEFAULT_TOUCH_TRESHOLD; // default value
         }
-        addFormNumericBox(F("Touch treshold (1..255)"), F("p062_touch_treshold"), touch_treshold, 0, 255);
-        String unit_ = F("Default: ");
-        unit_ += String(P062_DEFAULT_TOUCH_TRESHOLD);
-        addUnit(unit_);
+        addFormNumericBox(F("Touch treshold (1..255)"), F("ttreshold"), touch_treshold, 0, 255);
+        addUnit(concat(F("Default: "), P062_DEFAULT_TOUCH_TRESHOLD));
       }
 
       {
         uint8_t release_treshold = PCONFIG(3);
-        if(release_treshold == 0) {
-          release_treshold = P062_DEFAULT_RELEASE_TRESHOLD; //default value
+
+        if (release_treshold == 0) {
+          release_treshold = P062_DEFAULT_RELEASE_TRESHOLD; // default value
         }
-        addFormNumericBox(F("Release treshold (1..255)"), F("p062_release_treshold"), release_treshold, 0, 255);
-        String unit_ = F("Default: ");
-        unit_ += String(P062_DEFAULT_RELEASE_TRESHOLD);
-        addUnit(unit_);
+        addFormNumericBox(F("Release treshold (1..255)"), F("rtreshold"), release_treshold, 0, 255);
+        addUnit(concat(F("Default: "), P062_DEFAULT_RELEASE_TRESHOLD));
       }
       {
-        bool canCalibrate = true;
+        const __FlashStringHelper *sensitivityOptions[] = {
+          F("Normal"),
+          F("Extra sensitive (behind 4-6mm glass cover)")
+        };
+        const int sensitivityValues[] = {
+          MPR212_NORMAL_SENSITIVITY,
+          MPR212_EXTRA_SENSITIVITY
+        };
+        constexpr size_t optionCount = NR_ELEMENTS(sensitivityValues);
+        const FormSelectorOptions selector(optionCount, sensitivityOptions, sensitivityValues);
+        selector.addFormSelector(F("Panel sensitivity"), F("psens"), PCONFIG(4));
+      }
+      {
+        bool canCalibrate     = true;
         bool tbUseCalibration = bitRead(P062_CONFIG_FLAGS, P062_FLAGS_USE_CALIBRATION);
 
         P062_data_struct *P062_data = static_cast<P062_data_struct *>(getPluginTaskData(event->TaskIndex));
 
         if (nullptr == P062_data) {
-          P062_data = new (std::nothrow) P062_data_struct();
+          P062_data    = new (std::nothrow) P062_data_struct();
           canCalibrate = false;
+
           if (P062_data == nullptr) {
             return success;
           }
@@ -124,24 +167,26 @@ boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
         P062_data->loadTouchObjects(event->TaskIndex);
 
         addRowLabel(F("Object"));
-        html_table(EMPTY_STRING, false);  // Sub-table
+        html_table(EMPTY_STRING, false); // Sub-table
         html_table_header(F("&nbsp;#&nbsp;"));
         html_table_header(F("Touch (0..255)"));
         html_table_header(F("Release (0..255)"));
+
         if (tbUseCalibration && canCalibrate) {
           html_table_header(F("Current"));
           html_table_header(F("Min"));
           html_table_header(F("Max"));
         }
 
-        for (int objectNr = 0; objectNr < P062_MaxTouchObjects; objectNr++) {
+        for (int objectNr = 0; objectNr < P062_MaxTouchObjects; ++objectNr) {
           html_TR_TD();
           addHtml(F("&nbsp;"));
           addHtmlInt(objectNr + 1);
           html_TD();
-          addNumericBox(getPluginCustomArgName(objectNr + 100), P062_data->StoredSettings.TouchObjects[objectNr].touch,     0, 255);
+          addNumericBox(getPluginCustomArgName(objectNr + 100), P062_data->StoredSettings.TouchObjects[objectNr].touch, 0, 255);
           html_TD();
-          addNumericBox(getPluginCustomArgName(objectNr + 200), P062_data->StoredSettings.TouchObjects[objectNr].release,     0, 255);
+          addNumericBox(getPluginCustomArgName(objectNr + 200), P062_data->StoredSettings.TouchObjects[objectNr].release, 0, 255);
+
           if (tbUseCalibration && canCalibrate) {
             uint16_t current = 0;
             uint16_t min     = 0;
@@ -156,13 +201,13 @@ boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
           }
         }
         html_end_table();
+
         if (canCalibrate) {
-          const __FlashStringHelper * options1[2] = { F("No"), F("Yes") };
-          int optionValues1[2] = { 0, 1 };
-          int choice1 = tbUseCalibration ? 1 : 0;
-          addFormSelector(F("Enable Calibration"), F("p062_use_calibration"), 2, options1, optionValues1, choice1, true);
+          const int choice1 = tbUseCalibration ? 1 : 0;
+          addFormSelector_YesNo(F("Enable Calibration"), F("ucal"), choice1, true);
+
           if (tbUseCalibration) {
-            addFormCheckBox(F("Clear calibrationdata"), F("p062_clear_calibrate"), false);
+            addFormCheckBox(F("Clear calibrationdata"), F("clr_cal"), false);
           }
         }
         delete P062_data;
@@ -177,46 +222,52 @@ boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
 
       PCONFIG(1) = isFormItemChecked(F("scancode"));
 
-      PCONFIG(2) = getFormItemInt(F("p062_touch_treshold"));
-      PCONFIG(3) = getFormItemInt(F("p062_release_treshold"));
+      PCONFIG(2) = getFormItemInt(F("ttreshold"));
+      PCONFIG(3) = getFormItemInt(F("rtreshold"));
+      PCONFIG(4) = getFormItemInt(F("psens"));
 
       uint32_t lSettings = 0;
-      bool tbUseCalibration = getFormItemInt(F("p062_use_calibration")) == 1;
-      bitWrite(lSettings, P062_FLAGS_USE_CALIBRATION, tbUseCalibration);
-      P062_CONFIG_FLAGS  = lSettings;
+      bitWrite(lSettings, P062_FLAGS_USE_CALIBRATION, getFormItemInt(F("ucal")) == 1);
+      P062_CONFIG_FLAGS = lSettings;
 
       {
-        bool canCalibrate = true;
+        bool canCalibrate           = true;
         P062_data_struct *P062_data = static_cast<P062_data_struct *>(getPluginTaskData(event->TaskIndex));
 
         if (nullptr == P062_data) {
-          P062_data = new (std::nothrow) P062_data_struct();
+          P062_data    = new (std::nothrow) P062_data_struct();
           canCalibrate = false;
+
           if (P062_data == nullptr) {
             return success; // Save other settings even though this didn't initialize properly
           }
         }
         P062_data->loadTouchObjects(event->TaskIndex);
 
-        for (int objectNr = 0; objectNr < P062_MaxTouchObjects; objectNr++) {
-          P062_data->StoredSettings.TouchObjects[objectNr].touch   = getFormItemInt(getPluginCustomArgName(objectNr + 100));
-          P062_data->StoredSettings.TouchObjects[objectNr].release = getFormItemInt(getPluginCustomArgName(objectNr + 200));
+        for (int objectNr = 0; objectNr < P062_MaxTouchObjects; ++objectNr) {
+          P062_data->StoredSettings.TouchObjects[objectNr].touch   = getFormItemIntCustomArgName(objectNr + 100);
+          P062_data->StoredSettings.TouchObjects[objectNr].release = getFormItemIntCustomArgName(objectNr + 200);
         }
-#ifdef PLUGIN_062_DEBUG
-        String log = F("p062_data save size: ");
-        log += sizeof(P062_data->StoredSettings);
-        addLog(LOG_LEVEL_INFO, log);
-#endif // PLUGIN_062_DEBUG
-        SaveCustomTaskSettings(event->TaskIndex, (uint8_t *)&(P062_data->StoredSettings), sizeof(P062_data->StoredSettings));
+        # ifdef PLUGIN_062_DEBUG
+
+        if (loglevelActiveFor(LOG_LEVEL_INFO)) {
+          addLogMove(LOG_LEVEL_INFO, strformat(F("P062_data save size: %u"), sizeof(P062_data->StoredSettings)));
+        }
+        # endif // PLUGIN_062_DEBUG
+        SaveCustomTaskSettings(event->TaskIndex, reinterpret_cast<const uint8_t *>(&(P062_data->StoredSettings)),
+                               sizeof(P062_data->StoredSettings));
+
         if (!canCalibrate) {
           delete P062_data;
+          P062_data = nullptr;
         } else {
-          bool clearCalibration = isFormItemChecked(F("p062_clear_calibrate"));
+          const bool clearCalibration = isFormItemChecked(F("clr_cal"));
+
           if (clearCalibration) {
             P062_data->clearCalibrationData();
-#ifdef PLUGIN_062_DEBUG
+            # ifdef PLUGIN_062_DEBUG
             addLog(LOG_LEVEL_INFO, F("p062 clear calibration"));
-#endif // PLUGIN_062_DEBUG
+            # endif // PLUGIN_062_DEBUG
           }
         }
       }
@@ -232,25 +283,33 @@ boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
       P062_data_struct *P062_data = static_cast<P062_data_struct *>(getPluginTaskData(event->TaskIndex));
 
       if (nullptr != P062_data) {
-        success = true;
-        if (!P062_data->init(event->TaskIndex, PCONFIG(0), PCONFIG(1), tbUseCalibration)) {
+        if (!P062_data->init(event->TaskIndex, PCONFIG(0), PCONFIG(1), tbUseCalibration, PCONFIG(4))) {
           clearPluginTaskData(event->TaskIndex);
           P062_data = nullptr;
         } else {
-          uint8_t touch_treshold   = PCONFIG(2);
-          if(touch_treshold == 0) {
-            touch_treshold = P062_DEFAULT_TOUCH_TRESHOLD; //default value
+          success = true;
+
+          uint8_t touch_treshold = PCONFIG(2);
+
+          if (touch_treshold == 0) {
+            touch_treshold = P062_DEFAULT_TOUCH_TRESHOLD; // default value
           }
           uint8_t release_treshold = PCONFIG(3);
-          if(release_treshold == 0) {
-            release_treshold = P062_DEFAULT_RELEASE_TRESHOLD; //default value
+
+          if (release_treshold == 0) {
+            release_treshold = P062_DEFAULT_RELEASE_TRESHOLD; // default value
           }
-          if (touch_treshold != P062_DEFAULT_TOUCH_TRESHOLD && release_treshold != P062_DEFAULT_RELEASE_TRESHOLD) {
+
+          if ((touch_treshold != P062_DEFAULT_TOUCH_TRESHOLD) && (release_treshold != P062_DEFAULT_RELEASE_TRESHOLD)) {
             P062_data->setThresholds(touch_treshold, release_treshold); // Set custom tresholds, ignore default values
           }
-          for (uint8_t objectNr = 0; objectNr < P062_MaxTouchObjects; objectNr++) {
-            if (P062_data->StoredSettings.TouchObjects[objectNr].touch != 0 && P062_data->StoredSettings.TouchObjects[objectNr].release != 0) {
-              P062_data->setThreshold(objectNr, P062_data->StoredSettings.TouchObjects[objectNr].touch, P062_data->StoredSettings.TouchObjects[objectNr].release);
+
+          for (uint8_t objectNr = 0; objectNr < P062_MaxTouchObjects; ++objectNr) {
+            if ((P062_data->StoredSettings.TouchObjects[objectNr].touch != 0) &&
+                (P062_data->StoredSettings.TouchObjects[objectNr].release != 0)) {
+              P062_data->setThreshold(objectNr,
+                                      P062_data->StoredSettings.TouchObjects[objectNr].touch,
+                                      P062_data->StoredSettings.TouchObjects[objectNr].release);
             }
           }
         }
@@ -271,28 +330,28 @@ boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
 
         if (P062_data->readKey(key))
         {
-          UserVar[event->BaseVarIndex] = (float)key;
-          event->sensorType            = Sensor_VType::SENSOR_TYPE_SWITCH;
+          UserVar.setFloat(event->TaskIndex, 0, key);
+          event->sensorType = Sensor_VType::SENSOR_TYPE_SWITCH;
 
           if (loglevelActiveFor(LOG_LEVEL_INFO)) {
             String log = F("Tkey : ");
+            log.reserve(22);
 
             if (PCONFIG(1)) {
-              log = F("ScanCode=0x");
+              log += F("ScanCode=");
             }
             else {
-              log = F("KeyMap=0x");
+              log += F("KeyMap=");
             }
-            log += String(key, 16);
-            addLog(LOG_LEVEL_INFO, log);
+            log += formatToHex(key);
+            addLogMove(LOG_LEVEL_INFO, log);
 
             bool tbUseCalibration = bitRead(P062_CONFIG_FLAGS, P062_FLAGS_USE_CALIBRATION);
 
             if (tbUseCalibration) {
               uint16_t colMask = 0x01;
-              log.reserve(55);
 
-              for (uint8_t col = 0; col < P062_MaxTouchObjects; col++)
+              for (uint8_t col = 0; col < P062_MaxTouchObjects; ++col)
               {
                 if (key & colMask) // this key pressed?
                 {
@@ -300,15 +359,11 @@ boolean Plugin_062(uint8_t function, struct EventStruct *event, String& string)
                   uint16_t min     = 0;
                   uint16_t max     = 0;
                   P062_data->getCalibrationData(col, &current, &min, &max);
-                  log  = F("P062 touch #");
-                  log += col;
-                  log += F(" current: ");
-                  log += current;
-                  log += F(" min: ");
-                  log += min;
-                  log += F(" max: ");
-                  log += max;
-                  addLog(LOG_LEVEL_INFO, log);
+#ifndef BUILD_NO_DEBUG
+                  addLog(LOG_LEVEL_INFO,
+                         strformat(F("P062 touch #%d current: %d min: %d max: %d"),
+                                   col, current, min, max));
+#endif
                   if (!PCONFIG(1)) {
                     break;
                   }

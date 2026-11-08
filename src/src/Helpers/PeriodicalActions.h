@@ -1,7 +1,6 @@
 #ifndef HELPERS_PERIODICALACTIONS_H
 #define HELPERS_PERIODICALACTIONS_H
 
-#include <Arduino.h>
 #include "../../ESPEasy_common.h"
 
 #include "../Globals/CPlugins.h"
@@ -29,10 +28,9 @@ void runOncePerSecond();
 \*********************************************************************************************/
 void runEach30Seconds();
 
-#ifdef USES_MQTT
+#if FEATURE_MQTT
 
 void scheduleNextMQTTdelayQueue();
-void schedule_all_MQTTimport_tasks();
 
 void processMQTTdelayQueue();
 
@@ -40,20 +38,15 @@ void updateMQTTclient_connected();
 
 void runPeriodicalMQTT();
 
-controllerIndex_t firstEnabledMQTT_ControllerIndex();
-
-
-#endif //USES_MQTT
+#endif //if FEATURE_MQTT
 
 
 void logTimerStatistics();
 
-void updateLoopStats_30sec(uint8_t loglevel);
-
 /********************************************************************************************\
    Clean up all before going to sleep or reboot.
  \*********************************************************************************************/
-void prepareShutdown(ESPEasy_Scheduler::IntendedRebootReason_e reason);
+void prepareShutdown(IntendedRebootReason_e reason);
 
 
 

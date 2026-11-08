@@ -1,0 +1,136 @@
+#ifndef HELPERS_STRINGCONVERTER_NUMERICAL_H
+#define HELPERS_STRINGCONVERTER_NUMERICAL_H
+
+#include "../../ESPEasy_common.h"
+
+/********************************************************************************************\
+   Convert a char string to integer
+ \*********************************************************************************************/
+
+// FIXME: change original code so it uses String and String.toInt()
+uint32_t str2int(const char *string);
+
+/********************************************************************************************\
+   Check if valid float and convert string to float.
+ \*********************************************************************************************/
+bool          string2float(const String& string,
+                           float       & floatvalue);
+
+/*********************************************************************************************\
+   Workaround for removing trailing white space when String() converts a float with 0 decimals
+\*********************************************************************************************/
+String toString(const float& value,
+                unsigned int decimalPlaces = 2,
+                bool         trimTrailingZeros = false);
+
+bool toValidString(String& str,
+                  const float& value,
+                  unsigned int decimalPlaces = 2,
+                  bool         trimTrailingZeros = false);
+  
+
+// Create a string from given value represented in 'base'
+// For HEX or BIN representation, the separation will be per byte from the right.
+// For base 10 (DEC) the separator char will be placed every 3rd position from the right.
+// When extending the string to contain minNrDigits, zeroes will be prefixed.
+String ull2String(uint64_t value,
+                  uint8_t  base = 10,
+                  uint8_t  minNrDigits = 1,
+                  char     separatorChar = '\0',
+                  bool     toUpperCase = false);
+
+
+String ll2String(int64_t  value,
+                 uint8_t  base = 10,
+                 uint8_t  minNrDigits = 1,
+                 char     separatorChar = '\0',
+                 bool     toUpperCase = false);
+
+
+String trimTrailingZeros(const String& value);
+
+String toStringNoZero(int64_t value);
+
+String doubleToString(const double& value,
+                      unsigned int  decimalPlaces     = 2,
+                      bool          trimTrailingZeros = false);
+
+bool  doubleToValidString(String& str,
+                        const double& value,
+                        unsigned int  decimalPlaces     = 2,
+                        bool          trimTrailingZeros = false);
+  
+String floatToString(const float& value,
+                      unsigned int  decimalPlaces     = 2,
+                      bool          trimTrailingZeros = false);
+
+
+/********************************************************************************************\
+   Handling HEX strings
+ \*********************************************************************************************/
+
+// Convert max. 8 hex decimals to uint32_t
+uint32_t hexToUL(const String& input_c,
+                      size_t        nrHexDecimals);
+
+uint32_t hexToUL(const String& input_c);
+
+uint32_t hexToUL(const String& input_c,
+                      size_t        startpos,
+                      size_t        nrHexDecimals);
+
+// Convert max. 16 hex decimals to uint64_t
+uint64_t hexToULL(const String& input_c,
+                            size_t        nrHexDecimals); 
+
+uint64_t hexToULL(const String& input_c);
+
+uint64_t hexToULL(const String& input_c,
+                            size_t        startpos,
+                            size_t        nrHexDecimals);
+
+void appendHexChar(uint8_t data, String& string);
+
+// Binary data to HEX
+// Returned string length will be twice the size of the data array.
+String formatToHex_array(const uint8_t* data, size_t size);
+String formatToHex_wordarray(const uint16_t* data, size_t size);
+
+String formatULLtoHex(const uint64_t& value,
+                   const __FlashStringHelper * prefix,
+                   unsigned int minimal_hex_digits);
+
+String formatULLtoHex(const uint64_t& value,
+                   const __FlashStringHelper * prefix);
+
+String formatULLtoHex(const uint64_t& value, unsigned int minimal_hex_digits = 0);
+
+String formatULLtoHex_decimal(const uint64_t& value);
+
+
+String formatToHex(uint32_t value,
+                   const __FlashStringHelper * prefix,
+                   unsigned int minimal_hex_digits);
+
+String formatToHex(uint32_t value,
+                   const __FlashStringHelper * prefix);
+
+String formatToHex(uint32_t value, unsigned int minimal_hex_digits = 0);
+
+String formatToHex_no_prefix(uint32_t value, unsigned int minimal_hex_digits = 0);
+
+String formatHumanReadable(uint64_t value,
+                           uint32_t factor);
+
+String formatHumanReadable(uint64_t value,
+                           uint32_t factor,
+                           int           NrDecimals);
+
+String formatToHex_decimal(uint32_t value);
+
+String formatToHex_decimal(uint32_t value,
+                           uint32_t factor);
+
+String stringFromHexArray(const String& arr);
+
+#endif // ifndef HELPERS_STRINGCONVERTER_NUMERICAL_H

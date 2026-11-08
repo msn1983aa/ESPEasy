@@ -1,18 +1,12 @@
 #include "../DataStructs/NotificationSettingsStruct.h"
 
-#include "../../ESPEasy_common.h"
+#if FEATURE_NOTIFIER
 
-
-NotificationSettingsStruct::NotificationSettingsStruct() : Port(0), Pin1(0), Pin2(0) {
-    ZERO_FILL(Server);
-    ZERO_FILL(Domain);
-    ZERO_FILL(Sender);
-    ZERO_FILL(Receiver);
-    ZERO_FILL(Subject);
-    ZERO_FILL(Body);
-    ZERO_FILL(User);
-    ZERO_FILL(Pass);
-  }
+NotificationSettingsStruct::NotificationSettingsStruct() {
+  memset(this, 0, sizeof(NotificationSettingsStruct));
+  Pin1 = -1;
+  Pin2 = -1;
+}
 
   void NotificationSettingsStruct::validate() {
     ZERO_TERMINATE(Server);
@@ -24,3 +18,5 @@ NotificationSettingsStruct::NotificationSettingsStruct() : Port(0), Pin1(0), Pin
     ZERO_TERMINATE(User);
     ZERO_TERMINATE(Pass);
   }
+
+#endif

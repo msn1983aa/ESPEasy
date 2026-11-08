@@ -1,7 +1,7 @@
-#ifndef DATASTRUCTS_CONTROLLERINDEX_H
-#define DATASTRUCTS_CONTROLLERINDEX_H
+#ifndef DATATYPES_CONTROLLERINDEX_H
+#define DATATYPES_CONTROLLERINDEX_H
 
-#include <Arduino.h>
+#include "../../ESPEasy_common.h"
 
 typedef uint8_t    controllerIndex_t;
 

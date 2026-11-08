@@ -10,13 +10,21 @@
 #define STACK_SIZE 10 // was 50
 #define TOKEN_MAX 20
 
-enum class CalculateReturnCode {
-  OK                           = 0,
-  ERROR_STACK_OVERFLOW         = 1,
-  ERROR_BAD_OPERATOR           = 2,
-  ERROR_PARENTHESES_MISMATCHED = 3,
-  ERROR_UNKNOWN_TOKEN          = 4,
-  ERROR_TOKEN_LENGTH_EXCEEDED  = 5
+#if FEATURE_USE_DOUBLE_AS_ESPEASY_RULES_FLOAT_TYPE
+# define TOKEN_LENGTH 40
+#else
+# define TOKEN_LENGTH 25
+#endif // if FEATURE_USE_DOUBLE_AS_ESPEASY_RULES_FLOAT_TYPE
+#define OPERATOR_STACK_SIZE 32
+
+enum class CalculateReturnCode : uint8_t {
+  OK                           = 0u,
+  ERROR_STACK_OVERFLOW         = 1u,
+  ERROR_BAD_OPERATOR           = 2u,
+  ERROR_PARENTHESES_MISMATCHED = 3u,
+  ERROR_UNKNOWN_TOKEN          = 4u,
+  ERROR_TOKEN_LENGTH_EXCEEDED  = 5u
+
 };
 
 bool isError(CalculateReturnCode returnCode);
@@ -26,61 +34,98 @@ bool isError(CalculateReturnCode returnCode);
    like: log, sin, cos, tan, etc.
  \*********************************************************************************************/
 
-enum class UnaryOperator  {
+enum class UnaryOperator : uint8_t {
   Not = '!',
-  Log = 192, // Start at some ASCII code we don't expect in the rules.
-  Ln,        // Natural logarithm
-  Abs,       // Absolute value
-  Exp,       // exponential value, e^x
-  Sqrt,      // Square Root
-  Sq,        // Square, x^2
-  Round,     // Rounds to the nearest integer, but rounds halfway cases away from zero (instead of to the nearest even integer).
-  Sin,       // Sine (radian)
-  Sin_d,     // Sine (degree)
-  Cos,       // Cosine (radian)
-  Cos_d,     // Cosine (degree)
-  Tan,       // Tangent (radian)
-  Tan_d,     // Tangent (degree)
-  ArcSin,    // Arc Sine (radian)
-  ArcSin_d,  // Arc Sine (degree)
-  ArcCos,    // Arc Cosine (radian)
-  ArcCos_d,  // Arc Cosine (degree)
-  ArcTan,    // Arc Tangent (radian)
-  ArcTan_d   // Arc Tangent (degree)
+  Log = 192u, // Start at some ASCII code we don't expect in the rules.
+  Ln,         // Natural logarithm
+  Abs,        // Absolute value
+  Exp,        // exponential value, e^x
+  Sqrt,       // Square Root
+  Sq,         // Square, x^2
+  Round,      // Rounds to the nearest integer, but rounds halfway cases away from zero (instead of to the nearest even integer).
+  Sin,        // Sine (radian)
+  Sin_d,      // Sine (degree)
+  Cos,        // Cosine (radian)
+  Cos_d,      // Cosine (degree)
+  Tan,        // Tangent (radian)
+  Tan_d,      // Tangent (degree)
+  ArcSin,     // Arc Sine (radian)
+  ArcSin_d,   // Arc Sine (degree)
+  ArcCos,     // Arc Cosine (radian)
+  ArcCos_d,   // Arc Cosine (degree)
+  ArcTan,     // Arc Tangent (radian)
+  ArcTan_d,   // Arc Tangent (degree)
+  Map,        // Map (value, lowFrom, highFrom, lowTo, highTo) (not really unary...)
+  MapC,       // Map (value, lowFrom, highFrom, lowTo, highTo) and clamp to lowTo/highTo
+
 };
 
-void   preProcessReplace(String      & input,
-                         UnaryOperator op);
-bool   angleDegree(UnaryOperator op);
-String toString(UnaryOperator op);
+#if !defined(LIMIT_BUILD_SIZE) && FEATURE_TRIGONOMETRIC_FUNCTIONS_RULES
+enum class BinaryOperator : uint8_t {
 
-class RulesCalculate_t {
+  ArcTan2 = 220u, // Arc Tangent 2 (radian)
+  ArcTan2_d,      // Arc Tangent 2 (degrees)
+  FMod,           // Float-modulo
+
+};
+
+#endif // if !defined(LIMIT_BUILD_SIZE) && FEATURE_TRIGONOMETRIC_FUNCTIONS_RULES
+
+void preProcessReplace(String      & input,
+                       UnaryOperator op);
+bool angleDegree(UnaryOperator op);
+#if !defined(LIMIT_BUILD_SIZE) && FEATURE_TRIGONOMETRIC_FUNCTIONS_RULES
+bool angleDegree(BinaryOperator op);
+#endif // if !defined(LIMIT_BUILD_SIZE) && FEATURE_TRIGONOMETRIC_FUNCTIONS_RULES
+
+class RulesCalculate_t
+{
 private:
 
-  double globalstack[STACK_SIZE];
-  double *sp     = globalstack - 1;
-  const double *sp_max = &globalstack[STACK_SIZE - 1];
+  ESPEASY_RULES_FLOAT_TYPE globalstack[STACK_SIZE]{};
+  ESPEASY_RULES_FLOAT_TYPE *sp           = globalstack - 1;
+  const ESPEASY_RULES_FLOAT_TYPE *sp_max = &globalstack[STACK_SIZE - 1];
 
   // Check if it matches part of a number (identifier)
   // @param oc  Previous character
   // @param c   Current character
-  bool                is_number(char oc,
-                                char c);
+  static bool is_number(char oc,
+                        char c,
+                        char pc);
 
-  bool                is_operator(char c);
+  static bool              is_operator(char c);
 
-  bool                is_unary_operator(char c);
+  static bool              is_unary_operator(char c);
 
-  CalculateReturnCode push(double value);
+  #if !defined(LIMIT_BUILD_SIZE) && FEATURE_TRIGONOMETRIC_FUNCTIONS_RULES
+  static bool              is_binary_operator(char c);
+  #endif // if !defined(LIMIT_BUILD_SIZE) && FEATURE_TRIGONOMETRIC_FUNCTIONS_RULES
 
-  double              pop();
+  static bool              is_quinary_operator(char c);
 
-  double              apply_operator(char   op,
-                                     double first,
-                                     double second);
+  CalculateReturnCode      push(ESPEASY_RULES_FLOAT_TYPE value);
 
-  double apply_unary_operator(char   op,
-                              double first);
+  ESPEASY_RULES_FLOAT_TYPE pop();
+
+  ESPEASY_RULES_FLOAT_TYPE apply_operator(char                     op,
+                                          ESPEASY_RULES_FLOAT_TYPE first,
+                                          ESPEASY_RULES_FLOAT_TYPE second);
+
+  ESPEASY_RULES_FLOAT_TYPE apply_unary_operator(char                     op,
+                                                ESPEASY_RULES_FLOAT_TYPE first);
+
+  #if !defined(LIMIT_BUILD_SIZE) && FEATURE_TRIGONOMETRIC_FUNCTIONS_RULES
+  ESPEASY_RULES_FLOAT_TYPE apply_binary_operator(char                     op,
+                                                 ESPEASY_RULES_FLOAT_TYPE first,
+                                                 ESPEASY_RULES_FLOAT_TYPE second);
+  #endif // if !defined(LIMIT_BUILD_SIZE) && FEATURE_TRIGONOMETRIC_FUNCTIONS_RULES
+
+  ESPEASY_RULES_FLOAT_TYPE apply_quinary_operator(char                     op,
+                                                  ESPEASY_RULES_FLOAT_TYPE first,
+                                                  ESPEASY_RULES_FLOAT_TYPE second,
+                                                  ESPEASY_RULES_FLOAT_TYPE third,
+                                                  ESPEASY_RULES_FLOAT_TYPE fourth,
+                                                  ESPEASY_RULES_FLOAT_TYPE fifth);
 
   //  char              * next_token(char *linep);
 
@@ -88,37 +133,27 @@ private:
 
   // operators
   // precedence   operators         associativity
-  // 3            !                 right to left
+  // 4            !                 right to left
+  // 3            ^                 left to right
   // 2            * / %             left to right
-  // 1            + - ^             left to right
-  int          op_preced(const char c);
+  // 1            + -               left to right
+  static int  op_preced(const char c);
 
-  bool         op_left_assoc(const char c);
+  static bool op_left_assoc(const char c);
 
-  unsigned int op_arg_count(const char c);
+  // unused: unsigned int op_arg_count(const char c);
 
 public:
 
   RulesCalculate_t();
 
-  CalculateReturnCode doCalculate(const char *input,
-                                  double     *result);
+  CalculateReturnCode doCalculate(const char               *input,
+                                  ESPEASY_RULES_FLOAT_TYPE *result);
 
   // Try to replace multi byte operators with single character ones.
   // For example log, sin, cos, tan.
   static String preProces(const String& input);
-};
-
-extern RulesCalculate_t RulesCalculate;
-
-/*******************************************************************************************
-* Helper functions to actually interact with the rules calculation functions.
-* *****************************************************************************************/
-
-int                 CalculateParam(const String& TmpStr);
-
-CalculateReturnCode Calculate(const String& input,
-                              double      & result);
+}; // class RulesCalculate_t
 
 
 #endif // ifndef HELPERS_RULES_CALCULATE_H

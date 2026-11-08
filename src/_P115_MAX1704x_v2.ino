@@ -12,12 +12,17 @@
 #include "_Plugin_Helper.h"
 #ifdef USES_P115
 
+/** Changelog:
+ * 2025-06-14 tonhuisman: Add support for Custom Value Type per task value
+ * 2025-01-18 tonhuisman: Implement support for MQTT AutoDiscovery (partially)
+ * 2025-01-12 tonhuisman: Add support for MQTT AutoDiscovery (not supported yet for MAX1704)
+ */
 
 # include "src/PluginStructs/P115_data_struct.h"
 
 # define PLUGIN_115
 # define PLUGIN_ID_115     115           // plugin id
-# define PLUGIN_NAME_115   "Energy - Fuel Gauge MAX1704x [TESTING]"
+# define PLUGIN_NAME_115   "Energy - Fuel Gauge MAX1704x"
 # define PLUGIN_VALUENAME1_115 "Voltage" // Battery voltage
 # define PLUGIN_VALUENAME2_115 "SOC"     // Battery state of charge in percentage
 # define PLUGIN_VALUENAME3_115 "Alert"   // (0 or 1) Alert when the battery SoC gets too low
@@ -37,20 +42,17 @@ boolean Plugin_115(uint8_t function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
     {
-      Device[++deviceCount].Number           = PLUGIN_ID_115;
-      Device[deviceCount].Type               = DEVICE_TYPE_I2C;                  // how the device is connected
-      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_TRIPLE; // type of value the plugin will return
-      Device[deviceCount].Ports              = 0;
-      Device[deviceCount].PullUpOption       = false;
-      Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].FormulaOption      = true;
-      Device[deviceCount].ValueCount         = 4;
-      Device[deviceCount].SendDataOption     = true;
-      Device[deviceCount].TimerOption        = true;
-
-      // Device[deviceCount].TimerOptional = false;
-      Device[deviceCount].GlobalSyncOption = true;
-      Device[deviceCount].DecimalsOnly     = true;
+      auto& dev = Device[++deviceCount];
+      dev.Number         = PLUGIN_ID_115;
+      dev.Type           = DEVICE_TYPE_I2C;                  // how the device is connected
+      dev.VType          = Sensor_VType::SENSOR_TYPE_TRIPLE; // type of value the plugin will return
+      dev.FormulaOption  = true;
+      dev.ValueCount     = 4;
+      dev.SendDataOption = true;
+      dev.TimerOption    = true;
+      dev.DecimalsOnly   = true;
+      dev.PluginStats    = true;
+      dev.CustomVTypeVar = true;
       break;
     }
 
@@ -69,55 +71,71 @@ boolean Plugin_115(uint8_t function, struct EventStruct *event, String& string)
       break;
     }
 
+    # if FEATURE_MQTT_DISCOVER || FEATURE_CUSTOM_TASKVAR_VTYPE
+    case PLUGIN_GET_DISCOVERY_VTYPES:
+    {
+      #  if FEATURE_CUSTOM_TASKVAR_VTYPE
+
+      for (uint8_t i = 0; i < event->Par5; ++i) {
+        event->ParN[i] = ExtraTaskSettings.getTaskVarCustomVType(i);  // Custom/User selection
+      }
+      #  else // if FEATURE_CUSTOM_TASKVAR_VTYPE
+      event->Par1 = static_cast<int>(Sensor_VType::SENSOR_TYPE_NONE); // Not yet supported
+      #  endif // if FEATURE_CUSTOM_TASKVAR_VTYPE
+      success = true;
+      break;
+    }
+    # endif // if FEATURE_MQTT_DISCOVER || FEATURE_CUSTOM_TASKVAR_VTYPE
+
     case PLUGIN_I2C_HAS_ADDRESS:
     {
       success = (event->Par1 == 0x36);
       break;
     }
 
+    # if FEATURE_I2C_GET_ADDRESS
+    case PLUGIN_I2C_GET_ADDRESS:
+    {
+      event->Par1 = 0x36;
+      success     = true;
+      break;
+    }
+    # endif // if FEATURE_I2C_GET_ADDRESS
+
     case PLUGIN_INIT:
     {
       const sfe_max1704x_devices_e device = static_cast<sfe_max1704x_devices_e>(P115_DEVICESELECTOR);
       const int threshold                 = P115_THRESHOLD;
-      initPluginTaskData(event->TaskIndex, new (std::nothrow) P115_data_struct(P115_I2CADDR, device, threshold));
+      initPluginTaskData(event->TaskIndex, new (std::nothrow) P115_data_struct(device, threshold));
       P115_data_struct *P115_data = static_cast<P115_data_struct *>(getPluginTaskData(event->TaskIndex));
 
-      if (nullptr != P115_data) {
-        success = P115_data->begin(); // Start the sensor
-      }
-      break;
-    }
-
-    case PLUGIN_WEBFORM_SHOW_I2C_PARAMS:
-    {
-      /*
-         uint8_t choice          = P115_I2CADDR;
-         int  optionValues[1] = { 0x36 };
-         addFormSelectorI2C(F("plugin_115_i2c"), 1, optionValues, choice);
-       */
+      success = (nullptr != P115_data) && P115_data->begin(); // Start the sensor
       break;
     }
 
     case PLUGIN_WEBFORM_LOAD:
     {
       {
-        unsigned int choice = P115_DEVICESELECTOR;
-        const __FlashStringHelper * options[4];
-        options[0]          = F("MAX17043");
-        options[1]          = F("MAX17044 (2S)"); // 2-cell version of the MAX17043 (full-scale range of 10V)
-        options[2]          = F("MAX17048");
-        options[3]          = F("MAX17049 (2S)"); // 2-cell version of the MAX17048
-        int optionValues[4] = {
+        unsigned int choice                   = P115_DEVICESELECTOR;
+        const __FlashStringHelper *options[4] = {
+          F("MAX17043"),
+          F("MAX17044 (2S)"), // 2-cell version of the MAX17043 (full-scale range of 10V)
+          F("MAX17048"),
+          F("MAX17049 (2S)")  // 2-cell version of the MAX17048
+        };
+        const int optionValues[4] = {
           MAX1704X_MAX17043,
           MAX1704X_MAX17044,
           MAX1704X_MAX17048,
           MAX1704X_MAX17049 };
-        addFormSelector(F("Device"), F("plugin_115_device"), 4, options, optionValues, choice);
+        constexpr size_t optionCount = NR_ELEMENTS(optionValues);
+        const FormSelectorOptions selector(optionCount, options, optionValues);
+        selector.addFormSelector(F("Device"), F("device"), choice);
       }
 
-      addFormNumericBox(F("Alert threshold"), F("plugin_115_threshold"), P115_THRESHOLD, 1, 32);
-      addUnit(F("%"));
-      addFormCheckBox(F("Send Event on Alert"), F("plugin_115_alertevent"), P115_ALERTEVENT);
+      addFormNumericBox(F("Alert threshold"), F("threshold"), P115_THRESHOLD, 1, 32);
+      addUnit('%');
+      addFormCheckBox(F("Send Event on Alert"), F("alertevent"), P115_ALERTEVENT);
 
       success = true;
       break;
@@ -125,10 +143,9 @@ boolean Plugin_115(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
     {
-      //      P115_I2CADDR = getFormItemInt(F("plugin_115_i2c"));
-      P115_THRESHOLD      = getFormItemInt(F("plugin_115_threshold"));
-      P115_ALERTEVENT     = isFormItemChecked(F("plugin_115_alertevent"));
-      P115_DEVICESELECTOR = getFormItemInt(F("plugin_115_device"));
+      P115_THRESHOLD      = getFormItemInt(F("threshold"));
+      P115_ALERTEVENT     = isFormItemChecked(F("alertevent"));
+      P115_DEVICESELECTOR = getFormItemInt(F("device"));
 
       success = true;
       break;
@@ -139,24 +156,17 @@ boolean Plugin_115(uint8_t function, struct EventStruct *event, String& string)
       P115_data_struct *P115_data = static_cast<P115_data_struct *>(getPluginTaskData(event->TaskIndex));
 
       if ((nullptr != P115_data) && P115_data->initialized) {
-        UserVar[event->BaseVarIndex + 0] = P115_data->voltage;
-        UserVar[event->BaseVarIndex + 1] = P115_data->soc;
-        UserVar[event->BaseVarIndex + 2] = P115_data->alert;
-        UserVar[event->BaseVarIndex + 3] = P115_data->changeRate;
+        UserVar.setFloat(event->TaskIndex, 0, P115_data->voltage);
+        UserVar.setFloat(event->TaskIndex, 1, P115_data->soc);
+        UserVar.setFloat(event->TaskIndex, 2, P115_data->alert);
+        UserVar.setFloat(event->TaskIndex, 3, P115_data->changeRate);
 
+        #ifndef BUILD_NO_DEBUG
         if (loglevelActiveFor(LOG_LEVEL_INFO)) {
-          String log;
-          log.reserve(64);
-          log  = F("MAX1704x : Voltage: ");
-          log += P115_data->voltage;
-          log += F(" SoC: ");
-          log += P115_data->soc;
-          log += F(" Alert: ");
-          log += P115_data->alert;
-          log += F(" Rate: ");
-          log += P115_data->changeRate;
-          addLog(LOG_LEVEL_INFO, log);
+          addLogMove(LOG_LEVEL_INFO, strformat(F("MAX1704x : Voltage: %.2f SoC: %.2f Alert: %d Rate: %.2f"),
+                                               P115_data->voltage, P115_data->soc, P115_data->alert, P115_data->changeRate));
         }
+        #endif // ifndef BUILD_NO_DEBUG
         success = true;
       }
       break;
@@ -169,7 +179,7 @@ boolean Plugin_115(uint8_t function, struct EventStruct *event, String& string)
       if ((nullptr != P115_data) && P115_data->initialized) {
         const String command = parseString(string, 1);
 
-        if ((command == F("max1704xclearalert")))
+        if (equals(command, F("max1704xclearalert")))
         {
           P115_data->clearAlert();
           success = true;
@@ -194,15 +204,10 @@ boolean Plugin_115(uint8_t function, struct EventStruct *event, String& string)
                 const deviceIndex_t DeviceIndex = getDeviceIndex_from_TaskIndex(event->TaskIndex);
 
                 if (validDeviceIndex(DeviceIndex)) {
-                  LoadTaskSettings(event->TaskIndex);
-                  String newEvent = getTaskDeviceName(event->TaskIndex);
-                  newEvent += '#';
-                  newEvent += F("AlertTriggered");
-                  newEvent += ',';
-                  newEvent += formatUserVarNoCheck(event, 0); // Voltage
-                  newEvent += ',';
-                  newEvent += formatUserVarNoCheck(event, 1); // State Of Charge
-                  eventQueue.addMove(std::move(newEvent));
+                  const String eventvalues = strformat(F("%s,%s"),
+                                                       formatUserVarNoCheck(event, 0).c_str(),  // Voltage
+                                                       formatUserVarNoCheck(event, 1).c_str()); // State Of Charge
+                  eventQueue.add(event->TaskIndex, F("AlertTriggered"), eventvalues);
                 }
               }
             }

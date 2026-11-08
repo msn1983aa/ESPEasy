@@ -5,7 +5,7 @@
 #define TRACES 3        // number of memory traces
 #define TRACEENTRIES 15 // entries per trace
 
-#include <Arduino.h>
+
 #include "../../ESPEasy_common.h"
 
 /********************************************************************************************\
@@ -16,11 +16,11 @@
 class RamTracker {
 private:
 
-  String traces[TRACES];                            // trace of latest memory checks
-  unsigned int tracesMemory[TRACES];                // lowest memory for that  trace
+  String traces[TRACES]{};                            // trace of latest memory checks
+  unsigned int tracesMemory[TRACES]{};                // lowest memory for that  trace
   unsigned int readPtr, writePtr;                   // pointer to cyclic buffer
-  String nextAction[TRACEENTRIES];                  // buffer to record the names of functions before they are transfered to a trace
-  unsigned int nextActionStartMemory[TRACEENTRIES]; // memory levels for the functions.
+  String nextAction[TRACEENTRIES]{};                  // buffer to record the names of functions before they are transfered to a trace
+  unsigned int nextActionStartMemory[TRACEENTRIES]{}; // memory levels for the functions.
 
   unsigned int bestCaseTrace(void);
 
@@ -50,11 +50,34 @@ void checkRAMtoLog(void);
 void checkRAM(const String& flashString,
               int           a);
 
+void checkRAM(const __FlashStringHelper * flashString,
+              int           a);
+
+void checkRAM(const __FlashStringHelper * flashString,
+              const String& a);
+void checkRAM(const __FlashStringHelper * flashString,
+              const __FlashStringHelper * a);
 void checkRAM(const String& flashString,
               const String& a);
+void checkRAM_PluginCall_task(uint8_t taskIndex, uint8_t Function);
 
 void checkRAM(const __FlashStringHelper *  descr);
+
 void checkRAM(const String& descr);
+
+struct checkRAM_values {
+
+  checkRAM_values();
+
+  bool mustContinue() const;
+
+
+  uint32_t freeStack;
+  uint32_t freeRAM;
+};
+
+void checkRAM(const checkRAM_values & values, const String& descr);
+
 #endif
 
 

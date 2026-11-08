@@ -7,16 +7,39 @@
 #include <WiFiClient.h>
 #include <WiFiUdp.h>
 
-/*********************************************************************************************\
-   Syslog client
-\*********************************************************************************************/
-void syslog(uint8_t logLevel, const char *message);
+#if FEATURE_HTTP_CLIENT || FEATURE_DOWNLOAD
+# if FEATURE_TLS
 
+#  include "HttpClientLight.h"
+#  include <WiFiClientSecureLightBearSSL.h>
+#  define ESPEasy_HTTPClient HTTPClientLight
+
+# else
+
+#  ifdef ESP8266
+#   include <ESP8266HTTPClient.h>
+#  endif // ifdef ESP8266
+#  ifdef ESP32
+#   include <HTTPClient.h>
+#  endif // ifdef ESP32
+
+#  define ESPEasy_HTTPClient HTTPClient
+
+# endif
+#endif
+
+#if FEATURE_HTTP_TLS
+#include "../DataTypes/TLS_types.h"
+#endif // if FEATURE_HTTP_TLS
+
+
+#if FEATURE_ESPEASY_P2P
 
 /*********************************************************************************************\
    Update UDP port (ESPEasy propiertary protocol)
 \*********************************************************************************************/
-void updateUDPport();
+void stopUDPport();
+void updateUDPport(bool force);
 
 
 /*********************************************************************************************\
@@ -26,7 +49,7 @@ extern boolean runningUPDCheck;
 void checkUDP();
 
 /*********************************************************************************************\
-   Send event using UDP message
+   Send event using UDP message to specific unit
 \*********************************************************************************************/
 void SendUDPCommand(uint8_t destUnit, const char *data, uint8_t dataLength);
 
@@ -37,14 +60,39 @@ void SendUDPCommand(uint8_t destUnit, const char *data, uint8_t dataLength);
 String formatUnitToIPAddress(uint8_t unit, uint8_t formatCode);
 
 /*********************************************************************************************\
-   Get IP address for unit
+   Get IP address for specific unit
 \*********************************************************************************************/
 IPAddress getIPAddressForUnit(uint8_t unit);
 
 /*********************************************************************************************\
-   Send UDP message (unit 255=broadcast)
+   Get Name for specific unit
 \*********************************************************************************************/
-void sendUDP(uint8_t unit, const uint8_t *data, uint8_t size);
+String getNameForUnit(uint8_t unit);
+
+/*********************************************************************************************\
+   Get Age for specific unit
+\*********************************************************************************************/
+long getAgeForUnit(uint8_t unit);
+
+/*********************************************************************************************\
+   Get Build for specific unit
+\*********************************************************************************************/
+uint16_t getBuildnrForUnit(uint8_t unit);
+
+/*********************************************************************************************\
+   Get Load for specific unit
+\*********************************************************************************************/
+float getLoadForUnit(uint8_t unit);
+
+/*********************************************************************************************\
+   Get nodeType for specific unit
+\*********************************************************************************************/
+uint8_t getTypeForUnit(uint8_t unit);
+
+/*********************************************************************************************\
+   Get nodeTypeString for specific unit
+\*********************************************************************************************/
+String getTypeStringForUnit(uint8_t unit);
 
 /*********************************************************************************************\
    Refresh aging for remote units, drop if too old...
@@ -55,16 +103,17 @@ void refreshNodeList();
    Broadcast system info to other nodes. (to update node lists)
 \*********************************************************************************************/
 void sendSysInfoUDP(uint8_t repeats);
+#endif //FEATURE_ESPEASY_P2P
 
 
 #if defined(ESP8266)
 
-# ifdef USES_SSDP
+# if FEATURE_SSDP
 
 /********************************************************************************************\
    Respond to HTTP XML requests for SSDP information
  \*********************************************************************************************/
-void SSDP_schema(WiFiClient& client);
+void SSDP_schema();
 
 /********************************************************************************************\
    Global SSDP stuff
@@ -82,8 +131,8 @@ extern uint16_t  _respondToPort;
 
 extern bool _pending;
 extern unsigned short _delay;
-extern unsigned long  _process_time;
-extern unsigned long  _notify_time;
+extern uint32_t  _process_time;
+extern uint32_t  _notify_time;
 
 #  define SSDP_INTERVAL     1200
 #  define SSDP_PORT         1900
@@ -98,24 +147,20 @@ extern unsigned long  _notify_time;
  \*********************************************************************************************/
 bool SSDP_begin();
 
-/********************************************************************************************\
-   Send SSDP messages (notify & responses)
- \*********************************************************************************************/
-void SSDP_send(uint8_t method);
 
 /********************************************************************************************\
    SSDP message processing
  \*********************************************************************************************/
 void SSDP_update();
 
-# endif // ifdef USES_SSDP
+# endif // if FEATURE_SSDP
 #endif // if defined(ESP8266)
 
 
 // ********************************************************************************
 // Return subnet range of WiFi.
 // ********************************************************************************
-bool getSubnetRange(IPAddress& low, IPAddress& high);
+//bool getSubnetRange(IPAddress& low, IPAddress& high);
 
 // ********************************************************************************
 // Functions to test and handle network/client connectivity.
@@ -126,16 +171,27 @@ bool getSubnetRange(IPAddress& low, IPAddress& high);
 #endif // ifdef CORE_POST_2_5_0
 
 
-bool hasIPaddr();
+//bool hasIPaddr();
+
+bool useStaticIP();
 
 // Check connection. Maximum timeout 500 msec.
 bool NetworkConnected(uint32_t timeout_ms);
 
 bool hostReachable(const IPAddress& ip);
 
+#if FEATURE_HTTP_CLIENT
 bool connectClient(WiFiClient& client, const char *hostname, uint16_t port, uint32_t timeout_ms = 100);
 
 bool connectClient(WiFiClient& client, IPAddress ip, uint16_t port, uint32_t timeout_ms = 100);
+#endif // FEATURE_HTTP_CLIENT
+
+
+bool IPAddressSet(const IPAddress& ip);
+
+bool valid_DNS_address(const IPAddress& dns);
+
+bool setDNS(int index, const IPAddress& dns);
 
 bool resolveHostByName(const char *aHostname, IPAddress& aResult, uint32_t timeout_ms = 1000);
 
@@ -147,26 +203,60 @@ bool beginWiFiUDP_randomPort(WiFiUDP& udp);
 
 void sendGratuitousARP();
 
-bool splitHostPortString(const String& hostPortString, String& host, uint16_t& port);
+
+// Split the username and password from a string like this:
+// username:password@hostname:portnr
+// @param  hostPortString  The string to parse
+// @param  user The found username (if any)
+// @param  pass The found password (if any)
+// @param  hostname The hostname stripped from any of the other possible parameters
+// @param  port The found portname (defaults to 80 when not specified)
+// @retval Whether supplied hostPortString was valid.
+bool splitUserPass_HostPortString(const String& hostPortString, String& user, String& pass, String& host, uint16_t& port);
 
 // Split a full URL like "http://hostname:port/path/file.htm"
 // Return value is everything after the hostname:port section (including /)
-String splitURL(const String& fullURL, String& host, uint16_t& port, String& file);
+String splitURL(const String& fullURL, String& user, String& pass, String& host, uint16_t& port, String& file, String& protocol);
 
-#ifdef USE_SETTINGS_ARCHIVE
+
+#if FEATURE_HTTP_CLIENT
+
+String send_via_http(const String& logIdentifier,
+                     uint16_t      timeout,
+                     const String& user,
+                     const String& pass,
+                     const String& host,
+                     uint16_t      port,
+                     const String& uri,
+                     const String& HttpMethod,
+                     const String& header,
+                     const String& postStr,
+                     int         & httpCode,
+                     bool          must_check_reply,
+                     const String& protocol
+                     #if FEATURE_HTTP_TLS
+                     , TLS_types   tlsType = TLS_types::NoTLS
+                     #endif // if FEATURE_HTTP_TLS
+                    );
+#endif // FEATURE_HTTP_CLIENT
+
+#if FEATURE_DOWNLOAD
 
 // Download a file from a given URL and save to a local file named "file_save"
 // If the URL ends with a /, the file part will be assumed the same as file_save.
 // If file_save is empty, the file part from the URL will be used as local file name.
 // Return true when successful.
-bool downloadFile(const String& url, String file_save);
+bool downloadFile(String file_save, String error);
 
 bool downloadFile(const String& url, String file_save, const String& user, const String& pass, String& error);
 
-#endif // USE_SETTINGS_ARCHIVE
+bool downloadFirmware(String filename, String& error);
+bool downloadFirmware(const String& url, String& file_save, String& user, String& pass, String& error);
 
+// Return the full url including filename
+String joinUrlFilename(const String& url, String& filename);
 
-
+#endif // if FEATURE_DOWNLOAD
 
 
 

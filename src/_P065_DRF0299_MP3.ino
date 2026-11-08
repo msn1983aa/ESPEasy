@@ -9,6 +9,10 @@
 // written by Jochen Krapf (jk@nerd2nerd.org)
 
 // Change history:
+// 2023-03-12, tonhuisman: Set default serial port for ESP8266 too, and set a default volume value
+// 2023-03-11, tonhuisman: Change plugin from DEVICE_TYPE_SINGLE to DEVICE_TYPE_SERIAL, so it can be used on ESP32 (default: Serial1)
+//                         Initially switch CONFIG_PIN1 to CONFIG_PIN2 and always reset CONFIG_PIN1 to -1 on PLUGIN_WEBFORM_SAVE
+//                         Handle initial volume after ca. 0.5 sec delay to allow proper initialization of the player
 // 2021-05-01, tonhuisman: Add mode and repeat commands, optimize string and log usage to reduce size
 
 // Important! The module WTV020-SD look similar to the module DFPlayer-Mini but is NOT pin nor command compatible!
@@ -38,14 +42,16 @@
 
 # define PLUGIN_065
 # define PLUGIN_ID_065         65
-# define PLUGIN_NAME_065       "Notify - DFPlayer-Mini MP3 [TESTING]"
+# define PLUGIN_NAME_065       "Notify - DFPlayer-Mini MP3"
 # define PLUGIN_VALUENAME1_065 ""
 
 # include <ESPeasySerial.h>
 
-
-ESPeasySerial *P065_easySerial = NULL;
-
+# define P065_DEFAULT_VOLUME    15 // Set initial volume
+# define P065_VOLUME_DELAY      6  // At least 500 milliseconds delay to allow proper initialization of the player before setting the
+                                   // default volume
+ESPeasySerial *P065_easySerial = nullptr;
+uint8_t P065_initialVolumeSet  = P065_VOLUME_DELAY;
 
 boolean Plugin_065(uint8_t function, struct EventStruct *event, String& string)
 {
@@ -55,17 +61,11 @@ boolean Plugin_065(uint8_t function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
     {
-      Device[++deviceCount].Number           = PLUGIN_ID_065;
-      Device[deviceCount].Type               = DEVICE_TYPE_SINGLE;
-      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_NONE;
-      Device[deviceCount].Ports              = 0;
-      Device[deviceCount].PullUpOption       = false;
-      Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].FormulaOption      = false;
-      Device[deviceCount].ValueCount         = 0;
-      Device[deviceCount].SendDataOption     = false;
-      Device[deviceCount].TimerOption        = false;
-      Device[deviceCount].GlobalSyncOption   = false;
+      auto& dev = Device[++deviceCount];
+      dev.Number             = PLUGIN_ID_065;
+      dev.Type               = DEVICE_TYPE_SERIAL;
+      dev.VType              = Sensor_VType::SENSOR_TYPE_NONE;
+      dev.SerialPortsAllowed = INCLUDE_NOT_CDC_SERIAL;
       break;
     }
 
@@ -77,7 +77,38 @@ boolean Plugin_065(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICEGPIONAMES:
     {
-      event->String1 = formatGpioName_TX(false);
+      serialHelper_getGpioNames(event, true); // RX optional
+      break;
+    }
+
+    case PLUGIN_WEBFORM_SHOW_CONFIG:
+    {
+      string += serialHelper_getSerialTypeLabel(event);
+      success = true;
+      break;
+    }
+
+    case PLUGIN_SET_DEFAULTS:
+    {
+      # ifdef ESP8266
+      CONFIG_PORT = static_cast<uint8_t>(ESPEasySerialPort::software); // Set default to SoftwareSerial for ESP8266
+      # endif // ifdef ESP8266
+      # ifdef ESP32
+      CONFIG_PORT = static_cast<uint8_t>(ESPEasySerialPort::serial1);  // Set default to Serial1 for ESP32
+      # endif // ifdef ESP32
+      PCONFIG(0) = P065_DEFAULT_VOLUME;
+      break;
+    }
+
+    case PLUGIN_WEBFORM_SHOW_SERIAL_PARAMS:
+    {
+      if ((CONFIG_PIN1 != -1) && (CONFIG_PIN2 == -1)) { // Use old plugin config
+        CONFIG_PIN2 = CONFIG_PIN1;
+        CONFIG_PIN1 = -1;
+      }
+      # ifdef ESP32
+      addFormNote(F("MP3 TX pin is unused, and will be reset to '- None -' on save!"));
+      # endif // ifdef ESP32
       break;
     }
 
@@ -91,7 +122,8 @@ boolean Plugin_065(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
     {
-      PCONFIG(0) = getFormItemInt(F("volume"));
+      CONFIG_PIN1 = -1; // Always reset TX pin to none
+      PCONFIG(0)  = getFormItemInt(F("volume"));
 
       success = true;
       break;
@@ -99,24 +131,43 @@ boolean Plugin_065(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_INIT:
     {
-      # pragma GCC diagnostic push
-
-      // note: we cant fix this, its a upstream bug.
-      # pragma GCC diagnostic warning "-Wdelete-non-virtual-dtor"
-
       if (P065_easySerial) {
         delete P065_easySerial;
       }
-      # pragma GCC diagnostic pop
 
+      if ((CONFIG_PIN1 != -1) && (CONFIG_PIN2 == -1)) { // Use old plugin config
+        CONFIG_PIN2 = CONFIG_PIN1;
+        CONFIG_PIN1 = -1;
+      }
 
-      P065_easySerial = new (std::nothrow) ESPeasySerial(static_cast<ESPEasySerialPort>(CONFIG_PORT), -1, CONFIG_PIN1); // no RX, only TX
+      P065_easySerial = new (std::nothrow) ESPeasySerial(static_cast<ESPEasySerialPort>(CONFIG_PORT), -1, CONFIG_PIN2); // no RX, only TX
 
       if (P065_easySerial != nullptr) {
         P065_easySerial->begin(9600);
-        Plugin_065_SetVol(PCONFIG(0)); // set default volume
+        P065_initialVolumeSet = P065_VOLUME_DELAY;
 
         success = true;
+      }
+      break;
+    }
+
+    case PLUGIN_EXIT:
+    {
+      if (P065_easySerial != nullptr) {
+        delete P065_easySerial;
+        P065_easySerial = nullptr;
+      }
+      break;
+    }
+
+    case PLUGIN_TEN_PER_SECOND:
+    {
+      if ((P065_easySerial != nullptr) && (P065_initialVolumeSet > 0)) {
+        P065_initialVolumeSet--;
+
+        if (P065_initialVolumeSet == 0) {
+          Plugin_065_SetVol(PCONFIG(0)); // set default volume
+        }
       }
       break;
     }
@@ -127,24 +178,24 @@ boolean Plugin_065(uint8_t function, struct EventStruct *event, String& string)
         break;
       }
 
-      String command = parseString(string, 1);
-      String param   = parseString(string, 2);
-      int    value;
-      bool   valueValid = validIntFromString(param, value);
+      const String command = parseString(string, 1);
+      const String param   = parseString(string, 2);
+      int32_t value;
+      const bool valueValid = validIntFromString(param, value);
 
-      if (valueValid && (command == F("play")))
+      if (valueValid && equals(command, F("play")))
       {
         Plugin_065_Play(value);
         success = true;
       }
 
-      if (command == F("stop"))
+      if (equals(command, F("stop")))
       {
         Plugin_065_SendCmd(0x0E, 0);
         success = true;
       }
 
-      if (valueValid && (command == F("vol")))
+      if (valueValid && equals(command, F("vol")))
       {
         if (value == 0) { value = 30; }
         PCONFIG(0) = value;
@@ -152,36 +203,37 @@ boolean Plugin_065(uint8_t function, struct EventStruct *event, String& string)
         success = true;
       }
 
-      if (valueValid && (command == F("eq")))
+      if (valueValid && equals(command, F("eq")))
       {
         Plugin_065_SetEQ(value);
         success = true;
       }
 
-      if (valueValid && (command == F("mode")))
+      if (valueValid && equals(command, F("mode")))
       {
         Plugin_065_SetMode(value);
         success = true;
       }
 
-      if (valueValid && (command == F("repeat")))
+      if (valueValid && equals(command, F("repeat")))
       {
         Plugin_065_SetRepeat(value);
         success = true;
       }
 
+      #ifndef BUILD_NO_DEBUG
       if (success && loglevelActiveFor(LOG_LEVEL_INFO)) {
         String log;
         log.reserve(20);
-        log  = F("MP3  : ");
-        log += command;
+        log = concat(F("MP3  : "), command);
 
-        if (command != F("stop")) {
+        if (!equals(command, F("stop"))) {
           log += '=';
           log += value;
         }
-        addLog(LOG_LEVEL_INFO, log);
+        addLogMove(LOG_LEVEL_INFO, log);
       }
+      #endif // ifndef BUILD_NO_DEBUG
       break;
     }
   }
@@ -224,10 +276,7 @@ void Plugin_065_SetMode(int8_t mode)
   Plugin_065_SendCmd(0x08, mode);
 }
 
-void Plugin_065_SetRepeat(int8_t repeat)
-{
-  Plugin_065_SendCmd(0x11, (repeat <= 0) ? 0 : 1);
-}
+void Plugin_065_SetRepeat(int8_t repeat) { Plugin_065_SendCmd(0x11, (repeat <= 0) ? 0 : 1); }
 
 void Plugin_065_SendCmd(uint8_t cmd, int16_t data)
 {
@@ -248,15 +297,19 @@ void Plugin_065_SendCmd(uint8_t cmd, int16_t data)
 
   P065_easySerial->write(buffer, 10); // Send the byte array
 
+  # ifndef BUILD_NO_DEBUG
+
   if (loglevelActiveFor(LOG_LEVEL_DEBUG)) {
     String log = F("MP3  : Send Cmd ");
+    log.reserve(46);
 
     for (uint8_t i = 0; i < 10; i++) {
       log += String(buffer[i], 16);
       log += ' ';
     }
-    addLog(LOG_LEVEL_DEBUG, log);
+    addLogMove(LOG_LEVEL_DEBUG, log);
   }
+  # endif // ifndef BUILD_NO_DEBUG
 }
 
 #endif // USES_P065

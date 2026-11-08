@@ -1,64 +1,53 @@
-#ifndef ESPEASYCORE_ESPEASY_LOG_H
-#define ESPEASYCORE_ESPEASY_LOG_H
+#pragma once
 
 
 #include "../../ESPEasy_common.h"
+#include "../DataTypes/LogLevels.h"
 
-#define LOG_LEVEL_NONE                      0
-#define LOG_LEVEL_ERROR                     1
-#define LOG_LEVEL_INFO                      2
-#define LOG_LEVEL_DEBUG                     3
-#define LOG_LEVEL_DEBUG_MORE                4
-#define LOG_LEVEL_DEBUG_DEV                 9 // use for testing/debugging only, not for regular use
-#define LOG_LEVEL_NRELEMENTS                5 // Update this and getLogLevelDisplayString() when new log levels are added
+#include "../DataStructs/LogEntry.h"
 
-#define LOG_TO_SERIAL         1
-#define LOG_TO_SYSLOG         2
-#define LOG_TO_WEBLOG         3
-#define LOG_TO_SDCARD         4
 
+
+// Move the log String so it does not have to be copied in the web log
+#define addLogMove(L, S) addToLogMove(L, std::move(S))
+
+enum LogDestination : uint8_t;
 
 /********************************************************************************************\
-  Logging
-  \*********************************************************************************************/
-void initLog();
+   Logging
+ \*********************************************************************************************/
+void    initLog();
 
-const __FlashStringHelper * getLogLevelDisplayString(int logLevel);
 
-const __FlashStringHelper * getLogLevelDisplayStringFromIndex(uint8_t index, int& logLevel);
+void    disableSerialLog();
 
-void disableSerialLog();
+void    setLogLevelFor(LogDestination destination,
+                       uint8_t        logLevel);
 
-void setLogLevelFor(uint8_t destination, uint8_t logLevel);
+void    updateLogLevelCache();
 
-void updateLogLevelCache();
-
-bool loglevelActiveFor(uint8_t logLevel);
+bool    loglevelActiveFor(uint8_t logLevel);
 
 uint8_t getSerialLogLevel();
 
 uint8_t getWebLogLevel();
 
-bool loglevelActiveFor(uint8_t destination, uint8_t logLevel);
+bool    loglevelActiveFor(LogDestination destination,
+                          uint8_t        logLevel);
+
+void    addLog(uint8_t                    logLevel,
+               const __FlashStringHelper *str);
+void    addLog(uint8_t     logLevel,
+               const char *line);
+void    addLog(uint8_t  logLevel,
+               String&& str);
+
+void    addLog(uint8_t       logLevel,
+               const String& str);
+
+void    addToLogMove(uint8_t  logLevel,
+                     String&& str);
 
 
-bool loglevelActive(uint8_t logLevel, uint8_t logLevelSettings);
+void processLogs(bool serialOnly = false);
 
-//#ifdef LIMIT_BUILD_SIZE
-// Macro does add to the build size, but does take more resources as the string may need resources to create
-void addLog(uint8_t loglevel, const __FlashStringHelper *str);
-void addLog(uint8_t logLevel, const char *line);
-void addLog(uint8_t loglevel, const String& string);
-//#else
-// Do this in a template to prevent casting to String when not needed.
-//#define addLog(L,S) if (loglevelActiveFor(L)) { addToLog(L,S); }
-//#endif
-
-void addToLog(uint8_t loglevel, const __FlashStringHelper *str);
-
-void addToLog(uint8_t loglevel, const String& string);
-
-void addToLog(uint8_t logLevel, const char *line);
-
-
-#endif 

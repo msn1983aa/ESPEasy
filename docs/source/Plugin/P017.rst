@@ -13,7 +13,9 @@ Type: |P017_type|
 
 Name: |P017_name|
 
-Status: |P017_status|
+Status ESP32: |P017_status|
+
+Status ESP8266: |P017_status_lb|
 
 GitHub: |P017_github|_
 
@@ -51,10 +53,16 @@ Depending on the type of ESPEasy build installed on the unit, the I2C settings m
 
 **Event on Tag removal** (Disabled by default) When enabled sends the removed Tag value as an event and to all enabled controllers.
 
+.. include:: DataAcquisition.repl
+
 Supported hardware
 ------------------
 
 PN532 based NFC RFID reader connected via I2C on address 0x24.
+
+.. warning::
+
+  This device needs the ``I2C ClockStretchLimit`` (Tools/Advanced page) be set to ``2000`` (msec) to work as intended.
 
 |P017_usedby|
 

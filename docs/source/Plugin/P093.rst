@@ -13,7 +13,9 @@ Type: |P093_type|
 
 Name: |P093_name|
 
-Status: |P093_status|
+Status ESP32: |P093_status|
+
+Status ESP8266: |P093_status_lb|
 
 GitHub: |P093_github|_
 
@@ -26,13 +28,8 @@ Plugin is based on `Arduino library to control Mitsubishi Heat Pumps <https://gi
 Supported hardware
 ------------------
 
-Plugin should support all Mitsubishi heat pump units with a CN105 connector:
-
-* `P-Series <https://www.mitsubishicomfort.com/sites/default/themes/mitsubishicomfort/pdf/2018-01_P-Series_Controls-Compatibility-Chart.pdf>`_,
-* `M-Series <https://www.mitsubishicomfort.com/sites/default/themes/mitsubishicomfort/pdf/2018-01_M-Series_Controls-Compatibility-Chart.pdf>`_,
-* `CITY MULTI <https://www.mitsubishicomfort.com/sites/default/themes/mitsubishicomfort/pdf/Controller_Compatibility_Chart_2017-12_CITY_MULTI.pdf>`_.
-
-Open issue, where users can report models they are using - `list <https://github.com/SwiCago/HeatPump/issues/13>`_.
+Plugin should support all Mitsubishi heat pump units with a CN105 connector- git issue, where users can report models they are 
+using - `list <https://github.com/SwiCago/HeatPump/issues/13>`_.
 
 How to connect
 ~~~~~~~~~~~~~~
@@ -58,8 +55,6 @@ Parts required to make a CN105 female connector
 * `PAP-05V-S <https://www.digikey.com/product-detail/en/jst-sales-america-inc/PAP-05V-S/455-1489-ND/759977>`_,
 * `SPHD-002T-P0.5 <https://www.digikey.com/product-detail/en/jst-sales-america-inc/SPHD-002T-P0.5/455-1313-1-ND/608809>`_,
 
-One can also get `premade pigtails <http://www.usastore.revolectrix.com/Products_2/Cellpro-4s-Charge-Adapters_2/Cellpro-JST-PA-Battery-Pigtail-10-5-Position>`_.
-
 Example using D1 mini PRO
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -75,9 +70,13 @@ The Mitsubishi Heatpump plugin can be added as simple as selecting it from the l
 
 .. image:: P093_2.jpg
 
+
+See: :ref:`SerialHelper_page`
+
+
 Once we hit submit, the plugin will start sending messages through controller, i.e. MQTT with payload:
 
-``{"roomTemperature":23.0,"wideVane":"|","power":"OFF","mode":"AUTO","fan":"QUIET","vane":"AUTO","iSee":false,"temperature":24.0}``
+``{"roomTemperature":19.5,"wideVane":"|","power":"OFF","mode":"HEAT","fan":"AUTO","vane":"AUTO","iSee":false,"operating":false,"compressorFrequency":2,"temperature":22.0,"remoteTemperature":19.5}``
 
 Message is send every time a change is detected (i.e. one changes settings using IR remote control) and every X seconds, as set in the settings (60 seconds in above screenshot).
 
@@ -94,18 +93,53 @@ Commands
 Example
 -------
 
-A full working example using openHAB can be found `here <https://community.openhab.org/t/mitsubishi-heat-pump/91765>`_.
+There are several ways how to control AC unit using ESP Easy.
+
+**Using HTTP:**
+
+Generally commands are send via http using syntax ``http://<espeasyip>/control?cmd=<command>`` where ``<espeasyip>`` is the IP of your ESP Easy device, for example ``192.168.0.100``:
+
+.. include:: P093_examples_http.repl
+
+**Using MQTT:**
+
+Commands are send via MQTT using syntax ``<MQTT subscribe template>/cmd`` with payload: ``<command>``. For example, if your `unit name <https://espeasy.readthedocs.io/en/latest/Config/Config.html#unit-name>`_ is ``MyESPEasy``, one would send the below payload to topic ``MyESPEasy/cmd``:
+
+.. include:: P093_examples_mqtt.repl
+
+Please check `here <https://espeasy.readthedocs.io/en/latest/Reference/Command.html>`_ for more details on how to send commands using ESP Easy.
+
+Please `check <https://community.openhab.org/t/mitsubishi-heat-pump/91765>`_ for an example integration with openHAB.
+
+Get Config Values
+-----------------
+
+Get Config Values retrieves values or settings from the sensor or plugin, and can be used in Rules, Display plugins, Formula's etc. The square brackets **are** part of the variable. Replace ``<taskname>`` by the **Name** of the task.
+
+.. include:: P093_config_values.repl
 
 Special thanks
 --------------
 
 * to SwiCago and other maintainers and contributors of the *Arduino library to control Mitsubishi Heat Pumps* from https://github.com/SwiCago/HeatPump/,
 * to Chris Davis for his great `blog <https://chrdavis.github.io/hacking-a-mitsubishi-heat-pump-Part-1/>`_,
-* to Hadley from New Zealand for his *hacking* https://nicegear.co.nz/blog/hacking-a-mitsubishi-heat-pump-air-conditioner/,
+* to Hadley from New Zealand for his *hacking*.
 * and all others that contributed on this subject.
 
 Change log
 ----------
+
+.. versionchanged:: 2023/09/25
+  ...
+
+  |added|
+  Set Remote Temperature. (value > 0: Use external temperature sensor, value = 0: Use internal temperature sensor)
+
+.. versionchanged:: 2021/08/03
+  ...
+
+  |added|
+  Status of operating and compressor frequency.
 
 .. versionadded:: 2020/03/07
   ...

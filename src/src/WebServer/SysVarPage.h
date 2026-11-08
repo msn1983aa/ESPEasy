@@ -11,9 +11,6 @@
 // ********************************************************************************
 void handle_sysvars();
 
-void addSysVar_html(const __FlashStringHelper * input);
-void addSysVar_html(const String& input);
-
 #endif // WEBSERVER_SYSVARS
 
 

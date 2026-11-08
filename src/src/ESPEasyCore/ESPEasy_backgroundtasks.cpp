@@ -1,22 +1,34 @@
 #include "../ESPEasyCore/ESPEasy_backgroundtasks.h"
 
+#include "../../ESPEasy_common.h"
 
 #include "../../ESPEasy-Globals.h"
-#include "../../ESPEasy_common.h"
 #include "../DataStructs/TimingStats.h"
-#include "../ESPEasyCore/ESPEasyNetwork.h"
+#include "../../ESPEasy/net/ESPEasyNetwork.h"
 #include "../ESPEasyCore/Serial.h"
-#include "../Globals/NetworkState.h"
+#include "../../ESPEasy/net/Globals/NetworkState.h"
+#include "../Globals/Logging.h"
 #include "../Globals/Services.h"
 #include "../Globals/Settings.h"
-#include "../Helpers/Network.h"
+#if FEATURE_RTTTL && FEATURE_ANYRTTTL_LIB && FEATURE_ANYRTTTL_ASYNC
+#include "../Helpers/Audio.h"
+#endif // if FEATURE_RTTTL && FEATURE_ANYRTTTL_LIB && FEATURE_ANYRTTTL_ASYNC
+#include "../Helpers/ESPEasy_time_calc.h"
+#include "../Helpers/NetworkStatusLED.h"
 #include "../Helpers/Networking.h"
+
+
+#if FEATURE_ARDUINO_OTA
+#include "../Helpers/OTA.h"
+#endif
+
 
 
 /*********************************************************************************************\
 * run background tasks
 \*********************************************************************************************/
 bool runningBackgroundTasks = false;
+
 void backgroundtasks()
 {
   // checkRAM(F("backgroundtasks"));
@@ -39,11 +51,17 @@ void backgroundtasks()
   {
     return;
   }
+
+  // Rate limit calls to run backgroundtasks
+  static uint32_t lastRunBackgroundTasks = 0;
+  if (timePassedSince(lastRunBackgroundTasks) < 10) return;
+  lastRunBackgroundTasks = millis();
+
   START_TIMER
-  #ifdef FEATURE_MDNS
-  const bool networkConnected = NetworkConnected();
+  #if FEATURE_MDNS || FEATURE_ESPEASY_P2P
+  const bool networkConnected = ESPEasy::net::NetworkConnected();
   #else
-  NetworkConnected();
+  ESPEasy::net::NetworkConnected();
   #endif
 
   runningBackgroundTasks = true;
@@ -57,30 +75,39 @@ void backgroundtasks()
      }
    */
 
-  process_serialWriteBuffer();
+
+  processLogs();
 
   if (!UseRTOSMultitasking) {
     serial();
 
-    if (webserverRunning) {
+//    if (webserverRunning) {
+/*
+    {
+      START_TIMER
       web_server.handleClient();
+      STOP_TIMER(WEBSERVER_HANDLE_CLIENT);
     }
-
-    checkUDP();
+*/
+    #if FEATURE_ESPEASY_P2P
+    if (networkConnected) {
+      checkUDP();
+    }
+    #endif
   }
 
-  #ifdef FEATURE_DNS_SERVER
+  #if FEATURE_DNS_SERVER
 
   // process DNS, only used if the ESP has no valid WiFi config
   if (dnsServerActive) {
     dnsServer.processNextRequest();
   }
-  #endif // ifdef FEATURE_DNS_SERVER
+  #endif // if FEATURE_DNS_SERVER
 
-  #ifdef FEATURE_ARDUINO_OTA
+  #if FEATURE_ARDUINO_OTA
 
   if (Settings.ArduinoOTAEnable) {
-    ArduinoOTA.handle();
+    ArduinoOTA_handle();
   }
 
   // once OTA is triggered, only handle that and dont do other stuff. (otherwise it fails)
@@ -88,12 +115,12 @@ void backgroundtasks()
   {
     delay(0);
 
-    ArduinoOTA.handle();
+    ArduinoOTA_handle();
   }
 
-  #endif // ifdef FEATURE_ARDUINO_OTA
+  #endif // if FEATURE_ARDUINO_OTA
 
-  #ifdef FEATURE_MDNS
+  #if FEATURE_MDNS
 
   // Allow MDNS processing
   if (networkConnected) {
@@ -103,9 +130,13 @@ void backgroundtasks()
     MDNS.update();
     # endif // ifdef ESP8266
   }
-  #endif // ifdef FEATURE_MDNS
+  #endif // if FEATURE_MDNS
 
   delay(0);
+
+  #if FEATURE_RTTTL && FEATURE_ANYRTTTL_LIB && FEATURE_ANYRTTTL_ASYNC
+  update_rtttl();
+  #endif // if FEATURE_RTTTL && FEATURE_ANYRTTTL_LIB && FEATURE_ANYRTTTL_ASYNC
 
   statusLED(false);
 

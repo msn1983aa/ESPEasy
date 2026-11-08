@@ -2,7 +2,7 @@
 
 /// @file
 /// @brief Support for the Phillips RC-MM protocol.
-/// @see http://www.sbprojects.com/knowledge/ir/rcmm.php
+/// @see http://www.sbprojects.net/knowledge/ir/rcmm.php
 
 // Supports:
 //   Brand: Microsoft,  Model: XBOX 360
@@ -35,7 +35,6 @@ const uint16_t kRcmmMinGapTicks = 120;
 const uint32_t kRcmmMinGap = 3360;
 // Use a tolerance of +/-10% when matching some data spaces.
 const uint8_t kRcmmTolerance = 10;
-const uint16_t kRcmmExcess = 50;
 
 #if SEND_RCMM
 /// Send a Philips RC-MM packet.

@@ -4,28 +4,79 @@
 #include "../../_Plugin_Helper.h"
 #ifdef USES_P111
 
-#include <MFRC522.h>
+# include <MFRC522.h>
+
+# define P111_CS_PIN            PIN(0)
+# define P111_RST_PIN           PIN(1)
+# define P111_IRQ_PIN           PIN(2)
+# define P111_TAG_AUTOREMOVAL   PCONFIG(0)
+# define P111_SENDRESET         PCONFIG(1)
+# define P111_REMOVALVALUE      PCONFIG_LONG(0)
+# define P111_REMOVALTIMEOUT    PCONFIG_LONG(1)
+
+# define P111_NO_ERROR          0
+# define P111_ERROR_READ        1
+# define P111_ERROR_NO_TAG      2
+# define P111_ERROR_RESET_BUSY  3
+
+# define P111_NO_KEY           0xFFFFFFFF
+
+// #define P111_USE_REMOVAL      // Enable (real) Tag Removal detection options (but that won't work with MFRC522 reader)
+
+enum class P111_initPhases : uint8_t {
+  Ready       = 0x00,
+  ResetDelay1 = 0x01,
+  ResetDelay2 = 0x02,
+  Undefined   = 0xFF
+
+};
 
 struct P111_data_struct : public PluginTaskData_base {
+  P111_data_struct(taskIndex_t taskIndex,
+                   int8_t  csPin,
+                   int8_t  rstPin,
+                   int8_t  irqPin);
+  P111_data_struct() = delete;
+  virtual ~P111_data_struct();
 
-  P111_data_struct(uint8_t csPin, uint8_t rstPin);
-  void init();
-  uint8_t readCardStatus(unsigned long *key, bool *removedTag);
-  String getCardName();
+  void   init();
+  bool   plugin_ten_per_second(struct EventStruct *event);
+  bool   plugin_fifty_per_second(struct EventStruct *event);
 
-  MFRC522 *mfrc522;
+  String PCD_getVersion(uint8_t& v);
+
+private:
+
+  bool loop(struct EventStruct *event);
+
+  MFRC522 *mfrc522 = nullptr;
 
   uint8_t counter = 0;
 
-private:
-  bool reset(int8_t csPin, int8_t resetPin);
-  uint8_t readPassiveTargetID(uint8_t *uid, uint8_t *uidLength);
+  String      getCardName();
+  uint8_t     readCardStatus(uint64_t *key,
+                             bool     *removedTag);
+  bool        reset(int8_t csPin, int8_t resetPin);
+  uint8_t     readPassiveTargetID(uint8_t *uid,
+                                  uint8_t *uidLength);
 
-  uint8_t _csPin;
-  uint8_t _rstPin;
+  static void mfrc522_interrupt(P111_data_struct *self);
 
-  uint8_t errorCount   = 0;
-  bool removedState = true; // On startup, there will usually not be a tag nearby
+  int32_t timeToWait = 0;
+
+  int8_t  _csPin;
+  int8_t  _rstPin;
+  int8_t  _irqPin;
+  taskIndex_t _taskIndex;
+
+  uint8_t         errorCount   = 0;
+  bool            removedState = true; // On startup, there will usually not be a tag nearby
+  P111_initPhases initPhase    = P111_initPhases::Undefined;
+
+  int64_t _last_served_irq_pin_time_micros{};
+
+  ESPEASY_VOLATILE(int64_t) _irq_pin_time_micros = -1;
+
 };
 
 #endif // ifdef USES_P111

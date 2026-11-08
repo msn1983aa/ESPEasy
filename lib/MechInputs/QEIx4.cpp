@@ -27,6 +27,33 @@
 #include <limits.h>
 
 
+#ifndef CORE_POST_3_0_0
+  #ifdef ESP8266
+    #define IRAM_ATTR ICACHE_RAM_ATTR
+  #endif
+#endif
+
+
+#ifdef ESP32
+  // Special macros to disable interrupts from within an ISR function.
+  //
+  // See:
+  // Re-added interrupt code again for ESP32:
+  // https://github.com/espressif/arduino-esp32/commit/55d608e322443b7ac080b0ab62d5a93f26d2212f
+  // However this code cannot be called from an interrupt service routine.
+  // See comments at portDISABLE_INTERRUPTS
+  #  define ISR_noInterrupts()                           \
+  portMUX_TYPE updateMux = portMUX_INITIALIZER_UNLOCKED; \
+  portTRY_ENTER_CRITICAL_ISR(&updateMux, 1000);
+
+  #  define ISR_interrupts() portEXIT_CRITICAL(&updateMux);
+# endif // ifdef ESP32
+# ifdef ESP8266
+  #  define ISR_noInterrupts() noInterrupts();
+  #  define ISR_interrupts() interrupts();
+# endif // ifdef ESP8266
+
+
 // bit masks for state machine - don't change!!!
 #define QEIx4_STATE   0xC
 #define QEIx4_MASK    0x1C
@@ -174,23 +201,23 @@ void QEIx4::begin(int16_t pinA, int16_t pinB, int16_t pinI, uint8_t mode)
 
 long QEIx4::read()
 {
-	noInterrupts();
+	ISR_noInterrupts();
 	_bHasChanged = false;
 	long ret = _counter;
-	interrupts();
+	ISR_interrupts();
 	return ret;
 }
 
 void QEIx4::loop()
 {
-	noInterrupts();
+	ISR_noInterrupts();
 	processStateMachine();
-	interrupts();
+	ISR_interrupts();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void ICACHE_RAM_ATTR QEIx4::processStateMachine()
+void IRAM_ATTR QEIx4::processStateMachine()
 {
 	DEB(".");
 
@@ -227,7 +254,7 @@ void ICACHE_RAM_ATTR QEIx4::processStateMachine()
 	}
 }
 
-void ICACHE_RAM_ATTR QEIx4::ISR()
+void IRAM_ATTR QEIx4::ISR()
 {
 	for (uint8_t i=0; i<4; i++)
 		if (__instance[i])

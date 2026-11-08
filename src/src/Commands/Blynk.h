@@ -2,13 +2,12 @@
 #define COMMAND_BLYNK_H
 
 #include "../../ESPEasy_common.h"
-#include "../Globals/CPlugins.h"
-
 
 #ifdef USES_C012
 
+#include "../DataTypes/ControllerIndex.h"
 
-controllerIndex_t firstEnabledBlynk_ControllerIndex();
+
 
 // FIXME: this should go to PLUGIN_WRITE in _C012.ino
 const __FlashStringHelper * Command_Blynk_Get(struct EventStruct *event,

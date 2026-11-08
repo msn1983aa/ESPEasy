@@ -3,10 +3,6 @@
 
 #include "../WebServer/common.h"
 
-#ifdef FEATURE_SD
-#include <SD.h>
-#endif
-
 
 #ifdef WEBSERVER_NEW_UI
 
@@ -20,19 +16,15 @@ void handle_filelist_json();
 #ifdef WEBSERVER_FILELIST
 void handle_filelist();
 
-void handle_filelist_add_file(const String& filename, int filesize, int startIdx);
-
-void handle_filelist_buttons(int start_prev, int start_next, bool cacheFilesPresent);
-
 #endif // ifdef WEBSERVER_FILELIST
 
 // ********************************************************************************
 // Web Interface SD card file and directory list
 // ********************************************************************************
-#ifdef FEATURE_SD
+#if FEATURE_SD
 void handle_SDfilelist();
 
-#endif // ifdef FEATURE_SD
+#endif // if FEATURE_SD
 
 
 

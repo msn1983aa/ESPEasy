@@ -1,8 +1,11 @@
 #include "../WebServer/AccessControl.h"
 
+#include "../DataTypes/FormSelectorOptions.h"
+
 #include "../ESPEasyCore/ESPEasy_Log.h"
-#include "../ESPEasyCore/ESPEasyNetwork.h"
-#include "../ESPEasyCore/ESPEasyWifi.h"
+#include "../../ESPEasy/net/ESPEasyNetwork.h"
+#include "../../ESPEasy/net/wifi/ESPEasyWifi.h"
+
 
 #include "../Globals/SecuritySettings.h"
 #include "../Globals/Services.h"
@@ -12,104 +15,39 @@
 
 #include "../WebServer/Markup.h"
 
-// ********************************************************************************
-// Allowed IP range check
-// ********************************************************************************
+#include "../../ESPEasy/net/Helpers/NWAccessControl.h"
 
-boolean ipLessEqual(const IPAddress& ip, const IPAddress& high)
+
+
+bool clientIPinSubnetDefaultNetwork() {
+  return NWPlugin::ipInRange(
+    web_server.client().remoteIP(), 
+    ESPEasy::net::NetworkID(), 
+    ESPEasy::net::NetworkBroadcast());
+}
+
+bool clientIPallowed()
 {
-  unsigned long u_ip = ((unsigned long )ip[0] << 24) | ((unsigned long )ip[1] << 16) | ((unsigned long )ip[2] << 8) | ip[3];
-  unsigned long u_high = ((unsigned long )high[0] << 24) | ((unsigned long )high[1] << 16) | ((unsigned long )high[2] << 8) | high[3];
-  return u_ip <= u_high;
-}
-
-boolean ipInRange(const IPAddress& ip, const IPAddress& low, const IPAddress& high)
-{
-  return ipLessEqual(low, ip) && ipLessEqual(ip, high);
-}
-
-String describeAllowedIPrange() {
-  String reply;
-
-  switch (SecuritySettings.IPblockLevel) {
-    case ALL_ALLOWED:
-      reply +=  F("All Allowed");
-      break;
-    default:
-    {
-      IPAddress low, high;
-      getIPallowedRange(low, high);
-      reply +=  formatIP(low);
-      reply +=  F(" - ");
-      reply +=  formatIP(high);
-    }
-  }
-  return reply;
-}
-
-bool getIPallowedRange(IPAddress& low, IPAddress& high)
-{
-  switch (SecuritySettings.IPblockLevel) {
-    case LOCAL_SUBNET_ALLOWED:
-
-      if (WifiIsAP(WiFi.getMode())) {
-        // WiFi is active as accesspoint, do not check.
-        return false;
-      }
-      return getSubnetRange(low, high);
-    case ONLY_IP_RANGE_ALLOWED:
-      low  = SecuritySettings.AllowedIPrangeLow;
-      high = SecuritySettings.AllowedIPrangeHigh;
-      break;
-    default:
-      low  = IPAddress(0, 0, 0, 0);
-      high = IPAddress(255, 255, 255, 255);
-      return false;
-  }
-  return true;
-}
-
-bool clientIPinSubnet() {
-  IPAddress low, high;
-
-  if (!getSubnetRange(low, high)) {
-    // Could not determine subnet.
-    return false;
-  }
-  WiFiClient client(web_server.client());
-  return ipInRange(client.remoteIP(), low, high);
-}
-
-boolean clientIPallowed()
-{
-  // TD-er Must implement "safe time after boot"
-  IPAddress low, high;
-
-  if (!getIPallowedRange(low, high))
+  #if ESP_IDF_VERSION_MAJOR>=5
+  // FIXME TD-er: remoteIP() is reporting incorrect value
+//  return true;
+  #endif
+  const IPAddress remoteIP = web_server.client().remoteIP();
+  if (!IPAddressSet(remoteIP))
   {
-    // No subnet range determined, cannot filter on IP
+    // FIXME TD-er: Must see what's going on here, why the client doesn't send remote IP for some reason
     return true;
   }
-  WiFiClient client(web_server.client());
-
-  if (ipInRange(client.remoteIP(), low, high)) {
+  if (ESPEasy::net::ipInAllowedSubnet(remoteIP)) {
     return true;
   }
-
-  if (WifiIsAP(WiFi.getMode())) {
-    // @TD-er Fixme: Should match subnet of SoftAP.
-    return true;
-  }
-  String response = F("IP blocked: ");
-  response += formatIP(client.remoteIP());
+  String response = concat(F("IP blocked: "), formatIP(remoteIP));
   web_server.send(403, F("text/html"), response);
 
   if (loglevelActiveFor(LOG_LEVEL_ERROR)) {
     response += F(" Allowed: ");
-    response += formatIP(low);
-    response += F(" - ");
-    response += formatIP(high);
-    addLog(LOG_LEVEL_ERROR, response);
+    response += ESPEasy::net::describeAllowedIPrange(remoteIP);
+    addLogMove(LOG_LEVEL_ERROR, response);
   }
   return false;
 }
@@ -124,7 +62,8 @@ void clearAccessBlock()
 // ********************************************************************************
 void addIPaccessControlSelect(const String& name, int choice)
 {
-  const __FlashStringHelper *  options[3] = { F("Allow All"), F("Allow Local Subnet"), F("Allow IP range") };
+  const __FlashStringHelper *  options[] = { F("Allow All"), F("Allow Local Subnet"), F("Allow IP range") };
 
-  addSelector(name, 3, options, NULL, NULL, choice);
+  const FormSelectorOptions selector(NR_ELEMENTS(options), options);
+  selector.addSelector(name, choice);
 }

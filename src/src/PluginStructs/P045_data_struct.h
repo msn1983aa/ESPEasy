@@ -8,6 +8,10 @@ struct P045_data_struct : public PluginTaskData_base {
 public:
 
   P045_data_struct(uint8_t i2c_addr);
+  P045_data_struct() = delete;
+  virtual ~P045_data_struct() = default;
+
+  void init();
 
   void loop();
 
@@ -46,11 +50,11 @@ private:
 
 public:
 
-  int16_t _axis[3][5]; // [xyz], [min/max/range,a,g]
+  int16_t _axis[3][5]{}; // [xyz], [min/max/range,a,g]
 
 private:
 
-  unsigned long _timer = 0; // Timer to check values each 5 seconds
+  uint32_t _timer = 0; // Timer to check values each 5 seconds
   uint8_t       i2cAddress;
 };
 #endif // ifdef USES_P045

@@ -1,39 +1,35 @@
 #ifndef HELPER_CPLUGIN_SENSORTYPEHELPER_H
 #define HELPER_CPLUGIN_SENSORTYPEHELPER_H
 
-#include <Arduino.h>
+#include "../../ESPEasy_common.h"
 
 #include "../DataStructs/DeviceStruct.h"
 
-/*********************************************************************************************\
-   Get value count from sensor type
+void sensorTypeHelper_webformLoad_allTypes(struct EventStruct *event, int pconfigIndex);
 
-   Only use this function to determine nr of output values when changing output type of a task
-   To get the actual output values for a task, use getValueCountForTask
-\*********************************************************************************************/
-uint8_t getValueCountFromSensorType(Sensor_VType sensorType);
+void sensorTypeHelper_webformLoad_simple(struct EventStruct *event, int pconfigIndex);
 
-const __FlashStringHelper * getSensorTypeLabel(Sensor_VType sensorType);
+#if FEATURE_CUSTOM_TASKVAR_VTYPE
+void sensorTypeCategoriesHelper_Selector(const String& id,
+                                         int           optionCount,
+                                         const uint8_t options[],
+                                         Sensor_VType  choice);
+#endif // if FEATURE_CUSTOM_TASKVAR_VTYPE
+void sensorTypeHelper_webformLoad(struct EventStruct *event, int pconfigIndex, int optionCount, const uint8_t options[]);
+void sensorTypeHelper_webformLoad(struct EventStruct *event, int pconfigIndex, int optionCount, const uint8_t options[], bool showSubHeader, int valueIndex);
 
-void sensorTypeHelper_webformLoad_allTypes(struct EventStruct *event, uint8_t pconfigIndex);
+void sensorTypeHelper_saveOutputSelector(struct EventStruct *event, int pconfigIndex, uint8_t valueIndex, const String& defaultValueName);
 
-void sensorTypeHelper_webformLoad_header();
-
-void sensorTypeHelper_webformLoad_simple(struct EventStruct *event, uint8_t pconfigIndex);
-
-void sensorTypeHelper_webformLoad(struct EventStruct *event, uint8_t pconfigIndex, int optionCount, const uint8_t options[]);
-
-void sensorTypeHelper_saveOutputSelector(struct EventStruct *event, uint8_t pconfigIndex, uint8_t valueIndex, const String& defaultValueName);
-
-void pconfig_webformSave(struct EventStruct *event, uint8_t pconfigIndex);
+void pconfig_webformSave(struct EventStruct *event, int pconfigIndex);
 
 void sensorTypeHelper_loadOutputSelector(
-  struct EventStruct *event, uint8_t pconfigIndex, uint8_t valuenr,
-  int optionCount, const __FlashStringHelper * options[], const int indices[] = NULL);
+  struct EventStruct *event, int pconfigIndex, uint8_t valuenr,
+  int optionCount, const __FlashStringHelper * options[], const int indices[] = nullptr);
 
 void sensorTypeHelper_loadOutputSelector(
-  struct EventStruct *event, uint8_t pconfigIndex, uint8_t valuenr,
-  int optionCount, const String options[], const int indices[] = NULL);
+  struct EventStruct *event, int pconfigIndex, uint8_t valuenr,
+  int optionCount, const String options[], const int indices[] = nullptr);
 
+String sensorTypeHelper_webformID(int pconfigIndex);
 
 #endif // HELPER_CPLUGIN_SENSORTYPEHELPER_H

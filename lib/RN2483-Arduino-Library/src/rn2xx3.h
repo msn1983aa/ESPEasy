@@ -210,9 +210,9 @@ public:
 
   uint8_t get_busy_count() const;
 
-  rn2xx3_handler::RN_state wait_command_finished(unsigned long timeout = 10000);
+  rn2xx3_handler::RN_state wait_command_finished(uint32_t timeout = 10000);
 
-  rn2xx3_handler::RN_state wait_command_accepted(unsigned long timeout = 10000);
+  rn2xx3_handler::RN_state wait_command_accepted(uint32_t timeout = 10000);
 
   bool command_finished() const;
 
@@ -266,7 +266,7 @@ public:
    * The RN2xx3 accepts values from 100 to 4294967296.
    * Rumour has it that you need to do a autobaud() after the module wakes up again.
    */
-  void                     sleep(long msec);
+  void                     sleep(int32_t msec);
 
   /*
    * Send a raw command to the RN2xx3 module.
@@ -282,10 +282,12 @@ public:
 
   /*
    * Set the active channels to use.
+   * Optional rx2_freq to set/override the default frequency for RX2
+   * 
    * Returns true if setting the channels is possible.
    * Returns false if you are trying to use the wrong channels on the wrong module type.
    */
-  bool                     setFrequencyPlan(RN2xx3_datatypes::Freq_plan);
+  bool                     setFrequencyPlan(RN2xx3_datatypes::Freq_plan, uint32_t rx2_freq = 0);
 
   /*
    * Set version of TTN stack to use.

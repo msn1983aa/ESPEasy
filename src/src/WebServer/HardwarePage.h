@@ -12,4 +12,4 @@ void handle_hardware();
 
 #endif // ifdef WEBSERVER_HARDWARE
 
-#endif
+#endif // ifndef WEBSERVER_WEBSERVER_HARDWAREPAGE_H

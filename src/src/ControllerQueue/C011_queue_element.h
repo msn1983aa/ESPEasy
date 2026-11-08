@@ -2,6 +2,10 @@
 #define CONTROLLERQUEUE_C011_QUEUE_ELEMENT_H
 
 #include "../../ESPEasy_common.h"
+
+#ifdef USES_C011
+
+#include "../ControllerQueue/Queue_element_base.h"
 #include "../CustomBuild/ESPEasyLimits.h"
 #include "../DataStructs/DeviceStruct.h"
 #include "../DataStructs/UnitMessageCount.h"
@@ -11,12 +15,10 @@
 struct EventStruct;
 
 
-#ifdef USES_C011
-
 /*********************************************************************************************\
 * C011_queue_element for queueing requests for C011: Generic HTTP Advanced.
 \*********************************************************************************************/
-class C011_queue_element {
+class C011_queue_element : public Queue_element_base {
 public:
 
   C011_queue_element() = default;
@@ -27,24 +29,27 @@ public:
 
   C011_queue_element(const struct EventStruct *event);
 
-  bool isDuplicate(const C011_queue_element& other) const;
+  bool                      isDuplicate(const Queue_element_base& other) const override;
 
-  const UnitMessageCount_t* getUnitMessageCount() const { return nullptr; }
+  const UnitMessageCount_t* getUnitMessageCount() const override {
+    return nullptr;
+  }
 
-  size_t getSize() const;
+  UnitMessageCount_t* getUnitMessageCount() override {
+    return nullptr;
+  }
+
+  size_t getSize() const override;
 
   String uri;
   String HttpMethod;
   String header;
   String postStr;
-  int idx                          = 0;
-  unsigned long _timestamp         = millis();
-  taskIndex_t TaskIndex            = INVALID_TASK_INDEX;
-  controllerIndex_t controller_idx = INVALID_CONTROLLER_INDEX;
-  Sensor_VType sensorType          = Sensor_VType::SENSOR_TYPE_NONE;
+  int idx                 = 0;
+  Sensor_VType sensorType = Sensor_VType::SENSOR_TYPE_NONE;
 };
 
-#endif //USES_C011
+#endif // USES_C011
 
 
 #endif // CONTROLLERQUEUE_C011_QUEUE_ELEMENT_H

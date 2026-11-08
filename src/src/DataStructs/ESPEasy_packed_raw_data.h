@@ -1,7 +1,9 @@
-#ifndef ESPEASY_PACKED_RAW_DATA_H
-#define ESPEASY_PACKED_RAW_DATA_H
+#ifndef DATASTRUCT_ESPEASY_PACKED_RAW_DATA_H
+#define DATASTRUCT_ESPEASY_PACKED_RAW_DATA_H
 
 #include "../../ESPEasy_common.h"
+
+#if FEATURE_PACKED_RAW_DATA
 
 // Data types used in packed encoder.
 // p_uint16_1e2 means it is a 16 bit unsigned int, but multiplied by 100 first.
@@ -67,17 +69,17 @@ typedef uint32_t PackedData_enum;
 #define PackedData_vcc          5
 #define PackedData_pct_8        6
 
-uint8_t getPackedDataTypeSize(PackedData_enum dtype, float& factor, float& offset);
+//uint8_t getPackedDataTypeSize(PackedData_enum dtype, float& factor, float& offset);
 
-void LoRa_uintToBytes(uint64_t value, uint8_t byteSize, uint8_t *data, uint8_t& cursor);
+//void LoRa_uintToBytes(uint64_t value, uint8_t byteSize, uint8_t *data, uint8_t& cursor);
 
-void LoRa_intToBytes(int64_t value, uint8_t byteSize, uint8_t *data, uint8_t& cursor);
+//void LoRa_intToBytes(int64_t value, uint8_t byteSize, uint8_t *data, uint8_t& cursor);
 
-String LoRa_base16Encode(uint8_t *data, size_t size);
+//String LoRa_base16Encode(uint8_t *data, size_t size);
 
 String LoRa_addInt(uint64_t value, PackedData_enum datatype);
 
 String LoRa_addFloat(float value, PackedData_enum datatype);
 
-
-#endif // ESPEASY_PACKED_RAW_DATA_H
+#endif
+#endif // DATASTRUCT_ESPEASY_PACKED_RAW_DATA_H

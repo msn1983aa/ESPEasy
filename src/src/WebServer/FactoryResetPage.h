@@ -6,17 +6,12 @@
 
 #ifdef WEBSERVER_FACTORY_RESET
 
-#include "../Globals/ResetFactoryDefaultPref.h"
 
 // ********************************************************************************
 // Web Interface Factory Reset
 // ********************************************************************************
 void handle_factoryreset();
 
-// ********************************************************************************
-// Create pre-defined config selector
-// ********************************************************************************
-void addPreDefinedConfigSelector();
 
 #ifdef WEBSERVER_NEW_UI
 void handle_factoryreset_json();

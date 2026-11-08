@@ -1,30 +1,37 @@
 #include "_Plugin_Helper.h"
 #ifdef USES_P111
-//#######################################################################################################
-//################################ Plugin-111: RC522 SPI RFID reader ####################################
-//#######################################################################################################
 
-// Changelog:
-// 2021-03-13, tonhuisman: Disabled tag removal detection, as it seems impossible to achieve with the MFRC522.
-//                         Other takers to try and solve this challenge are welcome.
-//                         If this feature is desired, use a PN532 RFID detector, that does support removal detection properly and easily.
-//                         Set TimerOption to false as nothing is processed during PLUGIN_READ stage.
-// 2021-02-10, tonhuisman: Add tag removal detection, can be combined with time-out
-// 2021-02-07, tonhuisman: Rework to adhere to current plugin requirements, make pin settings user-selectable
-//                         Add options for tag removal time-out, as implemented before in P008 (Wiegand RFID) and P017 (PN532 RFID)
-//                         Implement PluginStruct to enable multiple instances
-// 2021-02-07, twinbee77: Adjustments to P129 from PluginPlayground
+// #######################################################################################################
+// ################################ Plugin-111: RC522 SPI RFID reader ####################################
+// #######################################################################################################
 
-#define PLUGIN_111
-#define PLUGIN_ID_111         111
-#define PLUGIN_NAME_111       "RFID - RC522 [TESTING]"
-#define PLUGIN_VALUENAME1_111 "Tag"
+/** Changelog:
+ * 2025-09-12 TD-er:      Add support for 7-byte UID
+ * 2025-08-20 TD-er:      Speed-up reading + send immediate event
+ * 2025-08-13 tonhuisman: Enable use of secondary SPI bus
+ * 2025-06-14 tonhuisman: Add support for Custom Value Type per task value
+ * 2025-01-12 tonhuisman: Add support for MQTT AutoDiscovery (not supported for RFID)
+ *                        Update changelog
+ * 2022-06-24 tonhuisman: Move plugin_ten_per_second handler to pluginstruct so it can properly handle the reset procedure
+ * 2022-06-23 tonhuisman: Reformat source (uncrustify), optimize somewhat for size
+ *                        Replace delay() call in reset by handling via plugin_fifty_per_second
+ * 2021-03-13 tonhuisman: Disabled tag removal detection, as it seems impossible to achieve with the MFRC522.
+ *                        Other takers to try and solve this challenge are welcome.
+ *                        If this feature is desired, use a PN532 RFID detector, that does support removal detection properly and easily.
+ *                        Set TimerOption to false as nothing is processed during PLUGIN_READ stage.
+ * 2021-02-10 tonhuisman: Add tag removal detection, can be combined with time-out
+ * 2021-02-07 tonhuisman: Rework to adhere to current plugin requirements, make pin settings user-selectable
+ *                        Add options for tag removal time-out, as implemented before in P008 (Wiegand RFID) and P017 (PN532 RFID)
+ *                        Implement PluginStruct to enable multiple instances
+ * 2021-02-07 twinbee77: Adjustments to P129 from PluginPlayground
+ */
 
-#include "src/PluginStructs/P111_data_struct.h"
+# define PLUGIN_111
+# define PLUGIN_ID_111         111
+# define PLUGIN_NAME_111       "RFID - RC522"
+# define PLUGIN_VALUENAME1_111 "Tag"
 
-#define P111_NO_KEY           0xFFFFFFFF
-
-// #define P111_USE_REMOVAL      // Enable (real) Tag Removal detection options
+# include "src/PluginStructs/P111_data_struct.h"
 
 boolean Plugin_111(uint8_t function, struct EventStruct *event, String& string)
 {
@@ -32,19 +39,21 @@ boolean Plugin_111(uint8_t function, struct EventStruct *event, String& string)
 
   switch (function)
   {
-
     case PLUGIN_DEVICE_ADD:
     {
-      Device[++deviceCount].Number           = PLUGIN_ID_111;
-      Device[deviceCount].Type               = DEVICE_TYPE_SPI2;
-      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_LONG;
-      Device[deviceCount].Ports              = 0;
-      Device[deviceCount].PullUpOption       = false;
-      Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].ValueCount         = 1;
-      Device[deviceCount].SendDataOption     = true;
-      Device[deviceCount].TimerOption        = false;
-      Device[deviceCount].GlobalSyncOption   = true;
+      auto& dev = Device[++deviceCount];
+      dev.Number           = PLUGIN_ID_111;
+      dev.Type             = DEVICE_TYPE_SPI3;
+#if FEATURE_EXTENDED_TASK_VALUE_TYPES
+      dev.VType            = Sensor_VType::SENSOR_TYPE_UINT64_SINGLE;
+#else
+      dev.VType            = Sensor_VType::SENSOR_TYPE_ULONG;
+#endif
+      dev.ValueCount       = 1;
+      dev.HasFormatUserVar = true;
+      dev.SendDataOption   = true;
+      dev.CustomVTypeVar   = true;
+      dev.SpiBusSelect   = true;
       break;
     }
 
@@ -59,51 +68,105 @@ boolean Plugin_111(uint8_t function, struct EventStruct *event, String& string)
       strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_111));
       break;
     }
-      
-    case PLUGIN_GET_DEVICEGPIONAMES:                //define 'GPIO 1st' name in webserver
+
+    case PLUGIN_GET_DEVICEGPIONAMES:                                  // define 'GPIO 1st' name in webserver
     {
-      event->String1 = formatGpioName_output(F("CS PIN"));  // PIN(0)
-      event->String2 = formatGpioName_output(F("RST PIN (optional)"));  // PIN(1)
+      event->String1 = formatGpioName_output(F("CS PIN"));            // P111_CS_PIN
+      event->String2 = formatGpioName_output_optional(F("RST PIN ")); // P111_RST_PIN
+      event->String3 = formatGpioName_input_optional(F("IRQ PIN "));  // P111_IRQ_PIN
+      break;
+    }
+
+    case PLUGIN_FORMAT_USERVAR:
+    {
+#if FEATURE_EXTENDED_TASK_VALUE_TYPES
+      string = formatULLtoHex(
+        UserVar.getUint64(event->TaskIndex, event->idx), 
+        1);
+#else
+      string = formatToHex(
+        UserVar.getSensorTypeLong(event->TaskIndex, event->idx), 
+        1);
+#endif
+      success = true;
+      break;
+    }
+
+    # if FEATURE_MQTT_DISCOVER || FEATURE_CUSTOM_TASKVAR_VTYPE
+    case PLUGIN_GET_DISCOVERY_VTYPES:
+    {
+      #  if FEATURE_CUSTOM_TASKVAR_VTYPE
+
+      for (uint8_t i = 0; i < event->Par5; ++i) {
+        event->ParN[i] = ExtraTaskSettings.getTaskVarCustomVType(i);  // Custom/User selection
+      }
+      #  else // if FEATURE_CUSTOM_TASKVAR_VTYPE
+      event->Par1 = static_cast<int>(Sensor_VType::SENSOR_TYPE_NONE); // Not yet supported
+      #  endif // if FEATURE_CUSTOM_TASKVAR_VTYPE
+      success = true;
+      break;
+    }
+    # endif // if FEATURE_MQTT_DISCOVER || FEATURE_CUSTOM_TASKVAR_VTYPE
+
+    case PLUGIN_WEBFORM_SHOW_GPIO_DESCR:
+    {
+      string  = event->String1;
+      string += concat(F("CS: "), formatGpioLabel(CONFIG_PIN1, false));
+      string += event->String1;
+      string += concat(F("RST: "), formatGpioLabel(CONFIG_PIN2, false));
+      string += event->String1;
+      string += concat(F("IRQ: "), formatGpioLabel(CONFIG_PIN3, false));
+      success = true;
       break;
     }
 
     case PLUGIN_SET_DEFAULTS:
     {
-      PCONFIG_LONG(1) = 500;  // Default 500 msec reset delay
+      P111_REMOVALTIMEOUT = 500; // Default 500 msec reset delay
       break;
     }
 
     case PLUGIN_WEBFORM_LOAD:
     {
-      addFormSubHeader(F("Options"));
+      P111_data_struct *P111_data = static_cast<P111_data_struct *>(getPluginTaskData(event->TaskIndex));
 
-      {
-        #ifdef P111_USE_REMOVAL
-        #define P111_removaltypes 3
-        #else // P111_USE_REMOVAL
-        #define P111_removaltypes 2
-        #endif // P111_USE_REMOVAL
-        const __FlashStringHelper * removaltype[P111_removaltypes] = { 
-                                                 F("None")
-                                                 ,F("Autoremove after Time-out")
-                                                 #ifdef P111_USE_REMOVAL
-                                                 ,F("Tag removal detection + Time-out")
-                                                 #endif // P111_USE_REMOVAL
-                                                };
-        int    removalopts[P111_removaltypes] = { 1, 0
-                                                 #ifdef P111_USE_REMOVAL
-                                                 , 2 
-                                                 #endif // P111_USE_REMOVAL
-                                                }; // A-typical order for logical order and backward compatibility
-        addFormSelector(F("Tag removal mode"), F("p111_autotagremoval"), P111_removaltypes, removaltype, removalopts, PCONFIG(0));
+      if (nullptr != P111_data) {
+        uint8_t v{};
+        const String version = P111_data->PCD_getVersion(v);
+
+        if ((v != 0) && (v != 0xFF)) {
+          addRowLabel(F("Reader Version"));
+          addHtml(version);
+        }
       }
 
-      addFormNumericBox(F("Tag removal Time-out"),F("p111_removaltimeout"), PCONFIG_LONG(1), 0, 60000); // 0 to 60 seconds
+      addFormSubHeader(F("Options"));
+      {
+        const __FlashStringHelper *removaltype[] = {
+          F("None"),
+          F("Autoremove after Time-out"),
+          # ifdef P111_USE_REMOVAL
+          F("Tag removal detection + Time-out")
+          # endif // ifdef P111_USE_REMOVAL
+        };
+        const int removalopts[] = { // A-typical order for logical order and backward compatibility
+          1, 0,
+          # ifdef P111_USE_REMOVAL
+          2
+          # endif // P111_USE_REMOVAL
+        };
+        constexpr size_t P111_removaltypes = NR_ELEMENTS(removalopts);
+        const FormSelectorOptions selector(P111_removaltypes, removaltype, removalopts);
+        selector.addFormSelector(F("Tag removal mode"), F("autotagremoval"), P111_TAG_AUTOREMOVAL);
+      }
+
+      addFormNumericBox(F("Tag removal Time-out"), F("removaltimeout"), P111_REMOVALTIMEOUT, 0, 60000);         // 0 to 60 seconds
       addUnit(F("mSec. (0..60000)"));
 
-      addFormNumericBox(F("Value to set on Tag removal"),F("p111_removalvalue"), PCONFIG_LONG(0), 0, 2147483647); // Max allowed is int = 0x7FFFFFFF ...
+      addFormNumericBox(F("Value to set on Tag removal"), F("removalvalue"), P111_REMOVALVALUE, 0, 2147483647); // Max allowed is int =
+                                                                                                                // 0x7FFFFFFF ...
 
-      addFormCheckBox(F("Event on Tag removal"), F("p111_sendreset"), PCONFIG(1) == 1);
+      addFormCheckBox(F("Event on Tag removal"), F("sendreset"), P111_SENDRESET == 1);
 
       success = true;
       break;
@@ -111,41 +174,42 @@ boolean Plugin_111(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_WEBFORM_SAVE:
     {
-      PCONFIG(0)      = getFormItemInt(F("p111_autotagremoval"));
-      PCONFIG(1)      = isFormItemChecked(F("p111_sendreset")) ? 1 : 0;
-      PCONFIG_LONG(0) = getFormItemInt(F("p111_removalvalue"));
-      PCONFIG_LONG(1) = getFormItemInt(F("p111_removaltimeout"));
-
-      success         = true;
-      break;
-    }
-
-    case PLUGIN_INIT:
-    {
-      initPluginTaskData(event->TaskIndex, new (std::nothrow) P111_data_struct(PIN(0), PIN(1)));
-      P111_data_struct *P111_data = static_cast<P111_data_struct *>(getPluginTaskData(event->TaskIndex));
-
-      if (nullptr == P111_data) {
-        return success;
-      }
-
-      P111_data->init();
+      P111_TAG_AUTOREMOVAL = getFormItemInt(F("autotagremoval"));
+      P111_SENDRESET       = isFormItemChecked(F("sendreset")) ? 1 : 0;
+      P111_REMOVALVALUE    = getFormItemInt(F("removalvalue"));
+      P111_REMOVALTIMEOUT  = getFormItemInt(F("removaltimeout"));
 
       success = true;
       break;
     }
 
-    case PLUGIN_TIMER_IN:
+    case PLUGIN_INIT:
+    {
+      initPluginTaskData(event->TaskIndex, 
+        new (std::nothrow) P111_data_struct(event->TaskIndex, P111_CS_PIN, P111_RST_PIN, P111_IRQ_PIN));
+      P111_data_struct *P111_data = static_cast<P111_data_struct *>(getPluginTaskData(event->TaskIndex));
+
+      if (nullptr != P111_data) {
+        P111_data->init();
+
+        success = true;
+      }
+
+      break;
+    }
+
+    case PLUGIN_TASKTIMER_IN:
     {
       // Reset card id on timeout
-      if (PCONFIG(0) == 0
-       #ifdef P111_USE_REMOVAL
-       || PCONFIG(0) == 2
-       #endif // P111_USE_REMOVAL
-         ) {
-        UserVar.setSensorTypeLong(event->TaskIndex, PCONFIG_LONG(0));
+      if (P111_TAG_AUTOREMOVAL == 0
+          # ifdef P111_USE_REMOVAL
+          || P111_TAG_AUTOREMOVAL == 2
+          # endif // ifdef P111_USE_REMOVAL
+          ) {
+        UserVar.setSensorTypeLong(event->TaskIndex, P111_REMOVALVALUE);
         addLog(LOG_LEVEL_INFO, F("MFRC522: Removed Tag"));
-        if (PCONFIG(1) == 1) {
+
+        if (P111_SENDRESET == 1) {
           sendData(event);
         }
         success = true;
@@ -157,53 +221,19 @@ boolean Plugin_111(uint8_t function, struct EventStruct *event, String& string)
     {
       P111_data_struct *P111_data = static_cast<P111_data_struct *>(getPluginTaskData(event->TaskIndex));
 
-      if (nullptr == P111_data) {
-        return success;
+      if (nullptr != P111_data) {
+        success = P111_data->plugin_ten_per_second(event);
       }
 
-      P111_data->counter++; // This variable replaces a static variable in the original implementation
-      if (P111_data->counter == 3) { // Only every 3rd 0.1 second we do a read
-        P111_data->counter = 0;
+      break;
+    }
 
-        unsigned long key        = P111_NO_KEY;
-        bool          removedTag = false;
-        uint8_t          error      = P111_data->readCardStatus(&key, &removedTag);
+    case PLUGIN_FIFTY_PER_SECOND: // Handle delays
+    {
+      P111_data_struct *P111_data = static_cast<P111_data_struct *>(getPluginTaskData(event->TaskIndex));
 
-        if (error == 0) {
-          unsigned long old_key = UserVar.getSensorTypeLong(event->TaskIndex);
-          bool          new_key = false;
-
-          #ifdef P111_USE_REMOVAL
-          if (removedTag && PCONFIG(0) == 2) { // removal detected and enabled
-            key = PCONFIG_LONG(0);
-          }
-          #endif // P111_USE_REMOVAL
-
-          if (old_key != key && key != P111_NO_KEY) {
-            UserVar.setSensorTypeLong(event->TaskIndex, key);
-            new_key = true;
-          }
-
-          if (loglevelActiveFor(LOG_LEVEL_INFO) && key != P111_NO_KEY) {
-            String log = F("MFRC522: ");
-            if (new_key) {
-              log += F("New Tag: ");
-            } else {
-              log += F("Old Tag: ");
-            }
-            log += key;
-            if (!removedTag) {
-              log += F(" card: ");
-              log += P111_data->getCardName();
-            }
-            addLog(LOG_LEVEL_INFO, log);
-          }
-
-          if (new_key && !removedTag) { // Removal event sent from PLUGIN_TIMER_IN, if any
-            sendData(event);
-          }
-          Scheduler.setPluginTaskTimer(PCONFIG_LONG(1), event->TaskIndex, event->Par1);
-        }
+      if (nullptr != P111_data) {
+        success = P111_data->plugin_fifty_per_second(event);
       }
       break;
     }

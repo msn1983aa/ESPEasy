@@ -176,19 +176,24 @@ class OLEDDisplay : public Print {
     /* Text functions */
 
     // Draws a string at the given location
-    void drawString(int16_t x, int16_t y, String text);
+    void drawString(int16_t x, int16_t y, const String& text);
 
     // Draws a String with a maximum width at the given location.
     // If the given String is wider than the specified width
     // The text will be wrapped to the next line at a space or dash
-    void drawStringMaxWidth(int16_t x, int16_t y, uint16_t maxLineWidth, String text);
+    void drawStringMaxWidth(int16_t x, int16_t y, uint16_t maxLineWidth, const String& text);
 
     // Returns the width of the const char* with the current
     // font settings
     uint16_t getStringWidth(const char* text, uint16_t length);
 
     // Convencience method for the const char version
-    uint16_t getStringWidth(String text);
+    uint16_t getStringWidth(const String& text);
+
+    // Returns the width of c with the already set fontData
+    // returns a 0 if c is non-ascii
+    // in this case the next char must be converted
+    uint8_t getCharWidth(const char c);
 
     // Specifies relative to which anchor point
     // the text is rendered. Available constants:
@@ -243,7 +248,7 @@ class OLEDDisplay : public Print {
     void drawLogBuffer(uint16_t x, uint16_t y);
 
     // Implementent needed function to be compatible with Print class
-    size_t write(uint8_t c);
+    size_t write(uint8_t c) override;
     size_t write(const char* s);
 
     uint8_t            *buffer = NULL;
@@ -254,10 +259,21 @@ class OLEDDisplay : public Print {
 
   protected:
 
+#ifdef OLEDDISPLAY_DOUBLE_BUFFER
+    // Get bounding box of changed pixels
+    // @retval True when there have been pixels changed    
+    bool getChangedBoundingBox(
+      uint8_t& minBoundX, 
+      uint8_t& minBoundY, 
+      uint8_t& maxBoundX, 
+      uint8_t& maxBoundY);
+#endif
+
+
     OLEDDISPLAY_TEXT_ALIGNMENT   textAlignment = TEXT_ALIGN_LEFT;
     OLEDDISPLAY_COLOR            color         = WHITE;
 
-    const char          *fontData              = ArialMT_Plain_10;
+    const char          *fontData              = getArialMT_Plain_10();
 
     // State values for logBuffer
     uint16_t   logBufferSize                   = 0;
@@ -276,7 +292,7 @@ class OLEDDisplay : public Print {
     void sendInitCommands();
 
     // converts utf8 characters to extended ascii
-    static char* utf8ascii(String s);
+    static char* utf8ascii(const String& s);
     static uint8_t utf8ascii(uint8_t ascii);
 
     void inline drawInternal(int16_t xMove, int16_t yMove, int16_t width, int16_t height, const char *data, uint16_t offset, uint16_t bytesInData) __attribute__((always_inline));

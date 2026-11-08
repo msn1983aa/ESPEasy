@@ -297,7 +297,7 @@ public:
 
   static double distanceBetween(double lat1, double long1, double lat2, double long2);
   static double courseTo(double lat1, double long1, double lat2, double long2);
-  static const char *cardinal(double course);
+  static const char *cardinal(float course);
 
   static int32_t parseDecimal(const char *term);
   static void parseDegrees(const char *term, RawDegrees &deg);
@@ -308,16 +308,23 @@ public:
   uint32_t passedChecksum()   const { return passedChecksumCount; }
   uint32_t invalidData()      const { return invalidDataCount; }
 
-private:
-  enum {
+public:
+  enum GPS_Sentence_type {
     GPS_SENTENCE_GPGGA,  // GGA - Global Positioning System Fix Data
     GPS_SENTENCE_GPRMC,  // RMC - Recommended Minimum Navigation Information
 
     GPS_SENTENCE_GPGSA,  // GSA - GPS DOP and active satellites
     GPS_SENTENCE_GPGSV,  // GSV - Satellites in view
 
+    GPS_SENTENCE_GPGLL,  // GLL - Latitude and longitude, with time of position fix and status
+
+    GPS_SENTENCE_GPTXT,  // Free format TXT field
+
     GPS_SENTENCE_OTHER};
 
+  GPS_Sentence_type getCurrentSentenceType() const { return static_cast<GPS_Sentence_type>(curSentenceType); }
+
+private:
   enum {
     GPS_SYSTEM_GPS = 0, // GP: GPS, SBAS, QZSS  & GN: Any combination of GNSS
     GPS_SYSTEM_GLONASS,

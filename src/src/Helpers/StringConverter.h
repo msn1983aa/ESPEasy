@@ -1,168 +1,292 @@
 #ifndef HELPERS_STRINGCONVERTER_H
 #define HELPERS_STRINGCONVERTER_H
 
-#include <Arduino.h>
+#include "../../ESPEasy_common.h"
 
 #include "../Globals/Plugins.h"
 #include "../Globals/CPlugins.h"
 
-#include "Convert.h"
+#include "../Helpers/Convert.h"
+#include "../Helpers/StringConverter_Numerical.h"
 
-class IPAddress;
+#include <IPAddress.h>
+#include <vector>
 
 // -V::569
 
-/********************************************************************************************\
-   Convert a char string to integer
- \*********************************************************************************************/
 
-// FIXME: change original code so it uses String and String.toInt()
-unsigned long str2int(const char *string);
+unsigned int count_newlines(const String& str);
 
-String        ull2String(uint64_t value,
-                         uint8_t  base = 10);
 
 /********************************************************************************************\
-   Check if valid float and convert string to float.
+   Concatenate using code which results in the smallest compiled code
  \*********************************************************************************************/
-bool string2float(const String& string,
-                  float       & floatvalue);
+
+String concat(const __FlashStringHelper *str,
+              const String             & val);
+String concat(const __FlashStringHelper *str,
+              const __FlashStringHelper *val);
+
+String concat(const __FlashStringHelper *str,
+              const char                *val);
+String concat(const __FlashStringHelper *str,
+              int                        val);
+String concat(const __FlashStringHelper *str,
+              const char               & c);
+
+#if defined(ESP32) && !defined(__riscv)
+String concat(const __FlashStringHelper *str,
+              const int32_t            & val);
+#endif // if defined(ESP32) && !defined(__riscv)
+String concat(const __FlashStringHelper *str,
+              const float              & val);
+String concat(const __FlashStringHelper *str,
+              const double             & val);
+String concat(const __FlashStringHelper *str,
+              const uint32_t           & val);
+#if defined(ESP32) && !defined(__riscv)
+String concat(const __FlashStringHelper *str,
+              const size_t             & val);
+#endif // if defined(ESP32) && !defined(__riscv)
+String concat(const char               & c,
+              const __FlashStringHelper *val);
+String concat(int                        i,
+              const __FlashStringHelper *val);
+String concat(uint32_t                   i,
+              const __FlashStringHelper *val);
+String concat(const String             & str,
+              const __FlashStringHelper *val);
+String concat(const String& str,
+              const String& val);
+String concat(const String& str,
+              const char   *val);
+String concat(const String& val,
+              const char  & c);
+String concat(String   && val,
+              const char& c);
+String concat(String                  && str,
+              const __FlashStringHelper *val);
+String concat(const __FlashStringHelper *str,
+              String                  && val);
+
+
+String concat(const char  & str,
+              const String& val);
+
+/*
+   template <typename T>
+   String concat(const __FlashStringHelper * str, const T &val) {
+ # ifdef USE_SECOND_HEAP
+   HeapSelectDram ephemeral;
+ # endif // ifdef USE_SECOND_HEAP
+
+   String res(str);
+   res.concat(val);
+   return res;
+   }
+ */
+/*
+   template <typename T>
+   String concat(const String& str, const T &val) {
+ # ifdef USE_SECOND_HEAP
+   HeapSelectDram ephemeral;
+ # endif // ifdef USE_SECOND_HEAP
+
+   String res(str);
+   res.concat(val);
+   return res;
+   }
+ */
+
+bool remove(String      & str,
+            const String& toRemove);
+bool remove(String                   & str,
+            const __FlashStringHelper *toRemove);
+bool remove(String    & str,
+            const char& toRemove);
+bool removeSpace(String& str);
+
+bool equals(const String             & str,
+            const __FlashStringHelper *f_str);
+bool equals(const String& str,
+            const char  & c);
+
+// Move the string to 2nd heap if present
+void   move_special(String & dest,
+                    String&& source);
+String move_special(String&& source);
+
+void   move_special(String & dest,
+                    String&& source,
+                    size_t   strLengthThreshold);
+String move_special(String&& source,
+                    size_t   strLengthThreshold);
+
+
+// Try to reserve on the heap with the most space available
+bool reserve_special(String& str,
+                     size_t  size);
+bool reserve_special(String& str,
+                     size_t  size,
+                     size_t  strLengthThreshold);
+
+// Arduino String does not have a function to de-allocate its internal buffer
+// This is a special trick to de-allocate its internal buffer and thus free up memory.
+void free_string(String& str);
+
+/*
+   template <typename T>
+   bool equals(const String& str, const T &val) {
+   return str.equals(String(val));
+   }
+ */
+
+/********************************************************************************************\
+   Format string using vsnprintf
+   See: https://cplusplus.com/reference/cstdio/printf/
+ \*********************************************************************************************/
+
+String strformat(const String& format,
+                 ...);
+String strformat(const __FlashStringHelper *format,
+                 ...);
 
 
 /********************************************************************************************\
    Convert a char string to IP uint8_t array
  \*********************************************************************************************/
-bool isIP(const String& string);
+bool   isIP(const String& string);
 
-bool str2ip(const String& string,
-               uint8_t         *IP);
+bool   str2ip(const String& string,
+              uint8_t      *IP);
 
-bool str2ip(const char *string,
-               uint8_t       *IP);
+bool   str2ip(const char *string,
+              uint8_t    *IP);
 
-String  formatIP(const IPAddress& ip);
+String formatIP(const IPAddress& ip,
+                bool             includeZone = false);
 
 
-/********************************************************************************************\
-   Handling HEX strings
- \*********************************************************************************************/
-
-// Convert max. 8 hex decimals to unsigned long
-unsigned long hexToUL(const String& input_c,
-                      size_t        nrHexDecimals);
-
-unsigned long hexToUL(const String& input_c);
-
-unsigned long hexToUL(const String& input_c,
-                      size_t        startpos,
-                      size_t        nrHexDecimals);
-
-String formatToHex(unsigned long value,
-                   const __FlashStringHelper * prefix);
-
-String formatToHex(unsigned long value);
-
-String formatHumanReadable(unsigned long value,
-                           unsigned long factor);
-
-String formatHumanReadable(unsigned long value,
-                           unsigned long factor,
-                           int           NrDecimals);
-
-String formatToHex_decimal(unsigned long value);
-
-String formatToHex_decimal(unsigned long value,
-                           unsigned long factor);
-
-const __FlashStringHelper * boolToString(bool value);
+const __FlashStringHelper* boolToString(bool value);
 
 /*********************************************************************************************\
    Typical string replace functions.
 \*********************************************************************************************/
-void   removeExtraNewLine(String& line);
+void                       removeExtraNewLine(String& line);
 
-void   addNewLine(String& line);
+// Remove all occurences of given character from the string
+void                       removeChar(String& line,
+                                      char    character);
 
-size_t UTF8_charLength(char firstByte);
+void                       addNewLine(String& line);
 
-void   replaceUnicodeByChar(String& line, char replChar);
+void                       replaceUnicodeByChar(String& line,
+                                                char    replChar);
+
+// Pad string with given char to minimum length
+void padToMinimumLength(String & line,
+                        uint32_t minimumLength,
+                        char     padChar = ' ');
+
+// Prefix string with given char to minimum length
+void prefixToMinimumLength(String & line,
+                           uint32_t minimumLength,
+                           char     prefixChar = ' ');
+
 
 /*********************************************************************************************\
    Format a value to the set number of decimals
 \*********************************************************************************************/
 String doFormatUserVar(struct EventStruct *event,
-                       uint8_t                rel_index,
+                       uint8_t             rel_index,
                        bool                mustCheck,
                        bool              & isvalid);
 
 String formatUserVarNoCheck(taskIndex_t TaskIndex,
-                            uint8_t        rel_index);
+                            uint8_t     rel_index);
 
 String formatUserVar(taskIndex_t TaskIndex,
-                     uint8_t        rel_index,
+                     uint8_t     rel_index,
                      bool      & isvalid);
 
 String formatUserVarNoCheck(struct EventStruct *event,
-                            uint8_t                rel_index);
+                            uint8_t             rel_index);
 
 String formatUserVar(struct EventStruct *event,
-                     uint8_t                rel_index,
+                     uint8_t             rel_index,
                      bool              & isvalid);
 
+#if FEATURE_STRING_VARIABLES
+String formatUserVarForPresentation(struct EventStruct *event,
+                                    taskVarIndex_t      varNr,
+                                    bool              & hasPresentation,
+                                    const String      & value,
+                                    const deviceIndex_t DeviceIndex,
+                                    String              valueName = EMPTY_STRING);
+#endif // if FEATURE_STRING_VARIABLES
 
 String get_formatted_Controller_number(cpluginID_t cpluginID);
+
+String get_formatted_Plugin_number(pluginID_t pluginID);
+
+// Prepend zeroes till the string value length is nrDigits
+String formatIntLeadingZeroes(int value,
+                              int nrDigits);
+String formatIntLeadingZeroes(const String& value,
+                              int           nrDigits);
 
 /*********************************************************************************************\
    Wrap a string with given pre- and postfix string.
 \*********************************************************************************************/
+String wrap_braces(const String& string);
+
 String wrap_String(const String& string,
-                   char wrap);
-                   
-void   wrap_String(const String& string,
-                   const String& wrap,
-                   String      & result);
+                   char          wrap);
+
+String wrap_String(const String& string,
+                   char          char1,
+                   char          char2);
 
 String wrapIfContains(const String& value,
                       char          contains,
                       char          wrap = '\"');
 
+String wrapWithQuotes(const String& text);
+
+String wrapWithQuotesIfContainsParameterSeparatorChar(const String& text);
+
 /*********************************************************************************************\
    Format an object value pair for use in JSON.
 \*********************************************************************************************/
-String to_json_object_value(const __FlashStringHelper * object,
-                            const __FlashStringHelper * value,
-                            bool wrapInQuotes = false);
-
-String to_json_object_value(const __FlashStringHelper * object,
-                            const String& value,
-                            bool wrapInQuotes = false);
-
-String to_json_object_value(const String& object,
-                            const String& value,
-                            bool wrapInQuotes = false);
+String to_json_value(const String& value,
+                     bool          wrapInQuotes = false);
 
 /*********************************************************************************************\
    Strip wrapping chars (e.g. quotes)
 \*********************************************************************************************/
-String stripWrappingChar(const String& text,
-                         char          wrappingChar);
-
 bool   stringWrappedWithChar(const String& text,
                              char          wrappingChar);
 
 bool   isQuoteChar(char c);
 
+bool   findUnusedQuoteChar(const String& text,
+                           char        & quotechar);
+
 bool   isParameterSeparatorChar(char c);
+
+bool   stringContainsSeparatorChar(const String& text);
+
+bool   isWrappedWithQuotes(const String& text);
 
 String stripQuotes(const String& text);
 
-bool   safe_strncpy(char         *dest,
-                    const __FlashStringHelper * source,
-                    size_t        max_size);
+bool   safe_strncpy(char                      *dest,
+                    const __FlashStringHelper *source,
+                    size_t                     max_size);
 
-bool   safe_strncpy(char         *dest,
-                    const String& source,
-                    size_t        max_size);
+bool safe_strncpy(char         *dest,
+                  const String& source,
+                  size_t        max_size);
 
 bool safe_strncpy(char       *dest,
                   const char *source,
@@ -177,25 +301,80 @@ String to_internal_string(const String& input,
    IndexFind = 1 => command.
     // FIXME TD-er: parseString* should use index starting at 0.
 \*********************************************************************************************/
+String parseString(const char *string,
+                   uint8_t     indexFind,
+                   char        separator  = ',',
+                   bool        trimResult = true);
+
 String parseString(const String& string,
-                   uint8_t          indexFind,
-                   char          separator = ',');
+                   uint8_t       indexFind,
+                   char          separator  = ',',
+                   bool          trimResult = true);
 
 String parseStringKeepCase(const String& string,
-                           uint8_t          indexFind,
-                           char          separator = ',');
+                           uint8_t       indexFind,
+                           char          separator  = ',',
+                           bool          trimResult = true);
+
+String parseStringKeepCaseNoTrim(const String& string,
+                                 uint8_t       indexFind,
+                                 char          separator = ',');
 
 String parseStringToEnd(const String& string,
-                        uint8_t          indexFind,
-                        char          separator = ',');
+                        uint8_t       indexFind,
+                        char          separator  = ',',
+                        bool          trimResult = true);
 
 String parseStringToEndKeepCase(const String& string,
-                                uint8_t          indexFind,
-                                char          separator = ',');
+                                uint8_t       indexFind,
+                                char          separator  = ',',
+                                bool          trimResult = true);
+
+String parseStringToEndKeepCaseNoTrim(const String& string,
+                                      uint8_t       indexFind,
+                                      char          separator = ',');
+
+String tolerantParseStringKeepCase(const char *string,
+                                   uint8_t     indexFind,
+                                   char        separator  = ',',
+                                   bool        trimResult = true);
 
 String tolerantParseStringKeepCase(const String& string,
-                                   uint8_t          indexFind,
-                                   char          separator = ',');
+                                   uint8_t       indexFind,
+                                   char          separator  = ',',
+                                   bool          trimResult = true);
+
+String              parseHexTextString(const String& argument,
+                                       int           index = 2);
+std::vector<uint8_t>parseHexTextData(const String& argument,
+                                     int           index = 2);
+
+
+/*********************************************************************************************\
+   GetTextIndexed: Get text from large PROGMEM stored string
+   Items are separated by a '|'
+   Code (c) Tasmota:
+   https://github.com/arendst/Tasmota/blob/293ae8064d753e6d38488b46d21cdc52a4a6e637/tasmota/tasmota_support/support.ino#L937
+\*********************************************************************************************/
+char* GetTextIndexed(char      *destination,
+                     size_t     destination_size,
+                     uint32_t   index,
+                     const char*haystack);
+
+/*********************************************************************************************\
+   GetCommandCode: Find string in large PROGMEM stored string
+   Items are separated by a '|'
+   Code (c) Tasmota:
+   https://github.com/arendst/Tasmota/blob/293ae8064d753e6d38488b46d21cdc52a4a6e637/tasmota/tasmota_support/support.ino#L967
+\*********************************************************************************************/
+int GetCommandCode(char      *destination,
+                   size_t     destination_size,
+                   const char*needle,
+                   const char*haystack);
+
+int GetCommandCode(const char*needle,
+                   const char*haystack);
+
 
 // escapes special characters in strings for use in html-forms
 bool   htmlEscapeChar(char    c,
@@ -208,76 +387,76 @@ void   htmlEscape(String& html);
 
 void   htmlStrongEscape(String& html);
 
-String URLEncode(const char *msg);
+String URLEncode(const String& msg);
 
-void   repl(const __FlashStringHelper * key,
-            const String& val,
-            String      & s,
-            bool       useURLencode);
+bool   repl(const __FlashStringHelper *key,
+            const String             & val,
+            String                   & s,
+            bool                       useURLencode);
 
-void   repl(const __FlashStringHelper * key,
-            const char* val,
-            String      & s,
-            bool       useURLencode);
+bool repl(const __FlashStringHelper *key,
+          const char                *val,
+          String                   & s,
+          bool                       useURLencode);
 
-void   repl(const String& key,
-            const String& val,
-            String      & s,
-            bool       useURLencode);
+bool repl(const __FlashStringHelper *key1,
+          const __FlashStringHelper *key2,
+          const char                *val,
+          String                   & s,
+          bool                       useURLencode);
 
-#ifndef BUILD_NO_SPECIAL_CHARACTERS_STRINGCONVERTER
+bool repl(const String& key,
+          const String& val,
+          String      & s,
+          bool          useURLencode);
+
 void parseSpecialCharacters(String& s,
-                            bool useURLencode);
-#endif // ifndef BUILD_NO_SPECIAL_CHARACTERS_STRINGCONVERTER
+                            bool    useURLencode);
 
 /********************************************************************************************\
    replace other system variables like %sysname%, %systime%, %ip%
  \*********************************************************************************************/
 void parseControllerVariables(String            & s,
                               struct EventStruct *event,
-                              bool             useURLencode);
+                              bool                useURLencode);
 
-void parseSingleControllerVariable(String            & s,
-                                   struct EventStruct *event,
-                                   uint8_t                taskValueIndex,
-                                   bool             useURLencode);
+void parseSingleControllerVariable(String           & s,
+                                   struct EventStruct*event,
+                                   uint8_t            taskValueIndex,
+                                   bool               useURLencode);
+
+#if FEATURE_MQTT_DISCOVER
+void parseDeviceClassVariable(String                  & s,
+                              const __FlashStringHelper*devclass,
+                              bool                      useURLencode);
+
+void parseUniqueIdVariable(String      & s,
+                           const String& uniqueId,
+                           bool          useURLencode);
+
+void parseElementIdVariable(String      & s,
+                            const String& elementId,
+                            bool          useURLencode);
+#endif // if FEATURE_MQTT_DISCOVER
+
+#if FEATURE_STRING_VARIABLES
+void parseValNameVariable(String      & s,
+                          const String& valname,
+                          bool          useURLencode);
+#endif // if FEATURE_STRING_VARIABLES
 
 void parseSystemVariables(String& s,
-                          bool useURLencode);
+                          bool    useURLencode);
 
 void parseEventVariables(String            & s,
                          struct EventStruct *event,
-                         bool             useURLencode);
+                         bool                useURLencode);
 
-bool getConvertArgument(const __FlashStringHelper * marker,
-                        const String& s,
-                        float       & argument,
-                        int         & startIndex,
-                        int         & endIndex);
-
-bool getConvertArgument2(const __FlashStringHelper * marker,
-                         const String& s,
-                         float       & arg1,
-                         float       & arg2,
-                         int         & startIndex,
-                         int         & endIndex);
-
-bool getConvertArgumentString(const __FlashStringHelper * marker,
-                              const String& s,
-                              String      & argumentString,
-                              int         & startIndex,
-                              int         & endIndex);
-
-bool getConvertArgumentString(const String& marker,
-                              const String& s,
-                              String      & argumentString,
-                              int         & startIndex,
-                              int         & endIndex);
 
 // Parse conversions marked with "%conv_marker%(float)"
 // Must be called last, since all sensor values must be converted, processed, etc.
 void parseStandardConversions(String& s,
-                              bool useURLencode);
+                              bool    useURLencode);
 
 
 bool HasArgv(const char  *string,
@@ -288,11 +467,18 @@ bool GetArgv(const char  *string,
              unsigned int argc,
              char         separator = ',');
 
-bool GetArgvBeginEnd(const char        *string,
-                     const unsigned int argc,
-                     int              & pos_begin,
-                     int              & pos_end,
-                     char               separator = ',');
+bool GetArgv(const char   *string,
+             const size_t& string_len,
+             String      & argvString,
+             unsigned int  argc,
+             unsigned int& string_pos,
+             unsigned int& argc_pos,
+             char          separator = ',');
 
+bool ContainsAny(const String& str,
+                 const char   *charsToFind,
+                 size_t        nrCharsToFind);
+bool ContainsAny(const String& str,
+                 const String& charsToFind);
 
 #endif // HELPERS_STRINGCONVERTER_H

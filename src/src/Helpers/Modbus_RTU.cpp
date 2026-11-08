@@ -1,17 +1,17 @@
-#include "Modbus_RTU.h"
+#include "../Helpers/Modbus_RTU.h"
 
+#if FEATURE_MODBUS
 
 #include "../ESPEasyCore/ESPEasy_Log.h"
-#include "ESPEasy_time_calc.h"
-#include "StringConverter.h"
+#include "../Helpers/ESPEasy_time_calc.h"
+#include "../Helpers/StringConverter.h"
 
-
-ModbusRTU_struct::ModbusRTU_struct() : easySerial(nullptr) {
-  reset();
-}
 
 ModbusRTU_struct::~ModbusRTU_struct() {
-  reset();
+  if (easySerial != nullptr) {
+    delete easySerial;
+    easySerial = nullptr;
+  }
 }
 
 void ModbusRTU_struct::reset() {
@@ -19,7 +19,7 @@ void ModbusRTU_struct::reset() {
     delete easySerial;
     easySerial = nullptr;
   }
-  detected_device_description = "";
+  free_string(detected_device_description);
 
   for (int i = 0; i < 8; ++i) {
     _sendframe[i] = 0;
@@ -45,7 +45,13 @@ bool ModbusRTU_struct::init(const ESPEasySerialPort port, const int16_t serial_r
     return false;
   }
   reset();
-  easySerial = new (std::nothrow) ESPeasySerial(port, serial_rx, serial_tx);
+  {
+    # ifdef USE_SECOND_HEAP
+    HeapSelectDram ephemeral;
+    # endif // ifdef USE_SECOND_HEAP
+
+    easySerial = new (std::nothrow) ESPeasySerial(port, serial_rx, serial_tx);
+  }
   if (easySerial == nullptr) { return false; }
   easySerial->begin(baudrate);
 
@@ -58,13 +64,14 @@ bool ModbusRTU_struct::init(const ESPEasySerialPort port, const int16_t serial_r
   }
 
   detected_device_description = getDevice_description(_modbus_address);
-
+#ifndef BUILD_NO_DEBUG
   if (loglevelActiveFor(LOG_LEVEL_INFO)) {
     String log; // = F("Modbus detected: ");
     log += detected_device_description;
-    addLog(LOG_LEVEL_INFO, log);
+    addLogMove(LOG_LEVEL_INFO, log);
     modbus_log_MEI(_modbus_address);
   }
+#endif
   return true;
 }
 
@@ -142,12 +149,12 @@ String ModbusRTU_struct::getDevice_description(uint8_t slaveAddress) {
       if (label.length() > 0) {
         // description += MEI_objectid_to_name(object_id);
         description += label;
-        description += ": ";
+        description += F(": ");
       }
 
       if (obj_text.length() > 0) {
         description += obj_text;
-        description += " - ";
+        description += F(" - ");
       }
     }
   }
@@ -246,8 +253,10 @@ String ModbusRTU_struct::parse_modbus_MEI_response(unsigned int& object_value_in
 
   if (_recv_buf_used < 8) {
     // Too small.
+#ifndef BUILD_NO_DEBUG
     addLog(LOG_LEVEL_INFO,
-           String(F("MEI response too small: ")) + _recv_buf_used);
+           concat(F("MEI response too small: "), _recv_buf_used));
+#endif
     next_object_id = 0xFF;
     more_follows   = false;
     return result;
@@ -290,7 +299,7 @@ String ModbusRTU_struct::parse_modbus_MEI_response(unsigned int& object_value_in
 
         if (i != 0) {
           // Append to existing description
-          result += ", ";
+          result += F(", ");
         }
         result += object_value;
       }
@@ -385,7 +394,7 @@ void ModbusRTU_struct::logModbusException(uint8_t value) {
       log += F("Modbus No Data");
       break;
      default:
-      log += String(F("Unknown Exception code: ")) + value;
+      log += concat(F("Unknown Exception code: "), value);
       break;
      }
      log += F(" - sent: ");
@@ -404,11 +413,11 @@ void ModbusRTU_struct::logModbusException(uint8_t value) {
       String hexvalue(buffer[i], HEX);
       hexvalue.toUpperCase();
       log += hexvalue;
-      log += F(" ");
+      log += ' ';
     }
-    log += F("(");
+    log += '(';
     log += length;
-    log += F(")");
+    log += ')';
     return log;
    }
  */
@@ -441,7 +450,7 @@ uint8_t ModbusRTU_struct::processCommand() {
 
     // Read answer from sensor
     _recv_buf_used = 0;
-    unsigned long timeout    = millis() + _modbus_timeout;
+    uint32_t timeout    = millis() + _modbus_timeout;
     bool validPacket         = false;
     bool invalidDueToTimeout = false;
 
@@ -535,13 +544,10 @@ uint32_t ModbusRTU_struct::read_32b_HoldingRegister(short address) {
 }
 
 float ModbusRTU_struct::read_float_HoldingRegister(short address) {
-  union {
-    uint32_t ival;
-    float    fval;
-  } conversion;
-
-  conversion.ival = read_32b_HoldingRegister(address);
-  return conversion.fval;
+  const uint32_t ival = read_32b_HoldingRegister(address);
+  float    fval{};
+  memcpy(&fval, &ival, sizeof(ival));
+  return fval;
 
   //    uint32_t ival = read_32b_HoldingRegister(address);
   //    float fval = *reinterpret_cast<float*>(&ival);
@@ -618,7 +624,7 @@ void ModbusRTU_struct::modbus_log_MEI(uint8_t slaveAddress) {
         String log = MEI_objectid_to_name(object_id);
         log += F(": ");
         log += result;
-        addLog(LOG_LEVEL_INFO, log);
+        addLogMove(LOG_LEVEL_INFO, log);
       }
     } else {
       switch (process_result) {
@@ -657,6 +663,7 @@ int ModbusRTU_struct::process_16b_register(uint8_t slaveAddress, uint8_t functio
   errorcode = processCommand();
 
   if (errorcode == 0) {
+    // TODO TD-er: Use getUint16FromBigEndianByteStream
     return (_recv_buf[3] << 8) | (_recv_buf[4]);
   }
   logModbusException(errorcode);
@@ -669,6 +676,7 @@ int ModbusRTU_struct::preset_mult16b_register(uint8_t slaveAddress, uint16_t sta
   const uint8_t process_result = processCommand();
 
   if (process_result == 0) {
+    // TODO TD-er: Use getUint16FromBigEndianByteStream
     return (_recv_buf[4] << 8) | (_recv_buf[5]);
   }
   logModbusException(process_result);
@@ -775,3 +783,5 @@ void ModbusRTU_struct::startRead() {
     digitalWrite(_dere_pin, LOW);
   }
 }
+
+#endif

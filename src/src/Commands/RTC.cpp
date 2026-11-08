@@ -1,8 +1,5 @@
 #include "../Commands/RTC.h"
 
-#include "../../ESPEasy_common.h"
-
-
 #include "../Commands/Common.h"
 
 #include "../DataStructs/RTCStruct.h"
@@ -15,11 +12,11 @@
 const __FlashStringHelper * Command_RTC_Clear(struct EventStruct *event, const char* Line)
 {
 	initRTC();
-	return return_command_success();
+	return return_command_success_flashstr();
 }
 
 const __FlashStringHelper * Command_RTC_resetFlashWriteCounter(struct EventStruct *event, const char* Line)
 {
 	RTC.flashDayCounter = 0;
-	return return_command_success();
+	return return_command_success_flashstr();
 }

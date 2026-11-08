@@ -13,7 +13,9 @@ Type: |P041_type|
 
 Name: |P041_name|
 
-Status: |P041_status|
+Status ESP32: |P041_status|
+
+Status ESP8266: |P041_status_lb|
 
 GitHub: |P041_github|_
 
@@ -25,6 +27,11 @@ Supported hardware
 ------------------
 
 |P041_usedby|
+
+Power consumption
+~~~~~~~~~~~~~~~~~
+
+.. include:: NeoPixel_Power.rst
 
 .. Commands available
 .. ^^^^^^^^^^^^^^^^^^

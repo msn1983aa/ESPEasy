@@ -1,13 +1,14 @@
 #include "../WebServer/WiFiScanner.h"
 
-#include "../WebServer/WebServer.h"
-#include "../WebServer/AccessControl.h"
+#include "../WebServer/ESPEasy_WebServer.h"
 #include "../WebServer/HTML_wrappers.h"
+#include "../Helpers/StringConverter.h"
+#include "../../ESPEasy/net/wifi/ESPEasyWifi.h"
+#include "../../ESPEasy/net/Globals/WiFi_AP_Candidates.h"
 
-#include "../ESPEasyCore/ESPEasyWifi.h"
-#include "../Globals/WiFi_AP_Candidates.h"
-#include "../Helpers/StringGenerator_WiFi.h"
-
+#ifdef USES_ESPEASY_NOW
+#include "../Globals/ESPEasy_now_handler.h"
+#endif
 
 #ifdef WEBSERVER_NEW_UI
 
@@ -22,27 +23,27 @@ void handle_wifiscanner_json() {
   if (!isLoggedIn()) { return; }
   navMenuIndex = MENU_INDEX_TOOLS;
   TXBuffer.startJsonStream();
-  addHtml(F("[{"));
+  addHtml('[', '{');
   bool firstentry = true;
 
-  if (WiFi_AP_Candidates.scanComplete() <= 0) {
+  if (ESPEasy::net::wifi::WiFi_AP_Candidates.scanComplete() <= 0) {
     WiFiMode_t cur_wifimode = WiFi.getMode();
-    WifiScan(false);
-    setWifiMode(cur_wifimode);
+    ESPEasy::net::wifi::WifiScan(false);
+    ESPEasy::net::wifi::setWifiMode(cur_wifimode);
   }
 
-  for (auto it = WiFi_AP_Candidates.scanned_begin(); it != WiFi_AP_Candidates.scanned_end(); ++it)
+  for (auto it = ESPEasy::net::wifi::WiFi_AP_Candidates.scanned_begin(); it != ESPEasy::net::wifi::WiFi_AP_Candidates.scanned_end(); ++it)
   {
     if (firstentry) { firstentry = false; }
-    else { addHtml(F(",{")); }
+    else { addHtml(',', '{'); }
     const String authType = it->encryption_type();
     if (authType.length() > 0) {
       stream_next_json_object_value(F("auth"), authType);
     }
     stream_next_json_object_value(getLabel(LabelType::SSID),      it->ssid);
     stream_next_json_object_value(getLabel(LabelType::BSSID),     it->bssid.toString());
-    stream_next_json_object_value(getLabel(LabelType::CHANNEL),   String(it->channel));
-    stream_last_json_object_value(getLabel(LabelType::WIFI_RSSI), String(it->rssi));
+    stream_next_json_object_value(getLabel(LabelType::CHANNEL),   it->channel);
+    stream_last_json_object_value(getLabel(LabelType::WIFI_RSSI), it->rssi);
   }
   if (firstentry) {
     addHtml('}');
@@ -60,16 +61,17 @@ void handle_wifiscanner() {
   checkRAM(F("handle_wifiscanner"));
   #endif
 
+  // Check for logged in state before potentially interrupting WiFi connection
   if (!isLoggedIn()) { return; }
 
   WiFiMode_t cur_wifimode = WiFi.getMode();
-  WifiScan(false);
-  int8_t scanCompleteStatus = WiFi_AP_Candidates.scanComplete();
-  setWifiMode(cur_wifimode);
+  ESPEasy::net::wifi::WifiScan(false);
+  ESPEasy::net::wifi::WiFi_AP_Candidates.process_WiFiscan();
+  int8_t scanCompleteStatus = ESPEasy::net::wifi::WiFi_AP_Candidates.scanComplete();
+  ESPEasy::net::wifi::setWifiMode(cur_wifimode);
 
-  navMenuIndex = MENU_INDEX_TOOLS;
-  TXBuffer.startStream();
-  sendHeadandTail_stdtemplate(_HEAD);
+  if (!startStream_send_stdTemplate(MENU_INDEX_TOOLS)) { return; }
+
   html_table_class_multirow();
   html_TR();
   html_table_header(getLabel(LabelType::SSID));
@@ -82,18 +84,20 @@ void handle_wifiscanner() {
   }
   else
   {
-    for (auto it = WiFi_AP_Candidates.scanned_begin(); it != WiFi_AP_Candidates.scanned_end(); ++it)
+    for (auto it = ESPEasy::net::wifi::WiFi_AP_Candidates.scanned_begin(); it != ESPEasy::net::wifi::WiFi_AP_Candidates.scanned_end(); ++it)
     {
       html_TR_TD();
       addHtml(it->toString(F("<TD>")));
       html_TD();
       getWiFi_RSSI_icon(it->rssi, 45);
+      #ifdef USES_ESPEASY_NOW
+        ESPEasy_now_handler.addPeerFromWiFiScan(*it);
+      #endif
     }
   }
 
   html_end_table();
-  sendHeadandTail_stdtemplate(_TAIL);
-  TXBuffer.endStream();
+  sendTail_stdtemplate();
 }
 
 #endif // ifdef WEBSERVER_WIFI_SCANNER

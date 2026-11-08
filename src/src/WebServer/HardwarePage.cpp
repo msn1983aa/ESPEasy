@@ -1,21 +1,31 @@
 #include "../WebServer/HardwarePage.h"
 
-#include "../WebServer/WebServer.h"
+#ifdef WEBSERVER_HARDWARE
+
+#include "../WebServer/ESPEasy_WebServer.h"
 #include "../WebServer/HTML_wrappers.h"
 #include "../WebServer/Markup.h"
 #include "../WebServer/Markup_Buttons.h"
 #include "../WebServer/Markup_Forms.h"
+
+#include "../CustomBuild/ESPEasyLimits.h"
 
 #include "../DataStructs/DeviceStruct.h"
 
 #include "../Globals/Settings.h"
 
 #include "../Helpers/ESPEasy_Storage.h"
-#include "../Helpers/Hardware.h"
-#include "../Helpers/StringConverter.h"
+#include "../Helpers/Hardware_GPIO.h"
+#include "../Helpers/I2C_access.h"
+#include "../Helpers/SPI_Helper.h"
+//#include "../Helpers/StringConverter.h"
 #include "../Helpers/StringGenerator_GPIO.h"
 
-#ifdef WEBSERVER_HARDWARE
+
+#if FEATURE_EEPROM_EXTERNAL
+#include "../../ESPEasy/eeprom/Helpers/EEPROMExternal.h"
+#include "../WebServer/DevicesPage.h" // For using ShowI2CMultiplexerUI() and GetI2CMultiplexerFromPage()
+#endif // if FEATURE_EEPROM_EXTERNAL
 
 // ********************************************************************************
 // Web Interface hardware page
@@ -25,188 +35,219 @@ void handle_hardware() {
   checkRAM(F("handle_hardware"));
   #endif
 
-  if (!isLoggedIn()) { return; }
-  navMenuIndex = MENU_INDEX_HARDWARE;
-  TXBuffer.startStream();
-  sendHeadandTail_stdtemplate(_HEAD);
+  if (!startStream_send_stdTemplate(MENU_INDEX_HARDWARE)) { return; }
 
-  if (isFormItem(F("psda")))
-  {
+  if (isFormItem(F("pled"))) {
+    String error;
     Settings.Pin_status_led           = getFormItemInt(F("pled"));
     Settings.Pin_status_led_Inversed  = isFormItemChecked(F("pledi"));
     Settings.Pin_Reset                = getFormItemInt(F("pres"));
-    Settings.Pin_i2c_sda              = getFormItemInt(F("psda"));
-    Settings.Pin_i2c_scl              = getFormItemInt(F("pscl"));
-    Settings.I2C_clockSpeed           = getFormItemInt(F("pi2csp"), DEFAULT_I2C_CLOCK_SPEED);
-    Settings.I2C_clockSpeed_Slow      = getFormItemInt(F("pi2cspslow"), DEFAULT_I2C_CLOCK_SPEED_SLOW);
-#ifdef FEATURE_I2CMULTIPLEXER
-    Settings.I2C_Multiplexer_Type     = getFormItemInt(F("pi2cmuxtype"));
-    if (Settings.I2C_Multiplexer_Type != I2C_MULTIPLEXER_NONE) {
-      Settings.I2C_Multiplexer_Addr   = getFormItemInt(F("pi2cmuxaddr"));
-    } else {
-      Settings.I2C_Multiplexer_Addr   = -1;
+    #if FEATURE_I2C_MULTIPLE
+    if (isFormItem(F("pi2cbuspcf"))) {
+      set3BitToUL(Settings.I2C_peripheral_bus, I2C_PERIPHERAL_BUS_PCFMCP, getFormItemInt(F("pi2cbuspcf")));
     }
-    Settings.I2C_Multiplexer_ResetPin = getFormItemInt(F("pi2cmuxreset"));
-#endif
-    #ifdef ESP32
-      Settings.InitSPI                = getFormItemInt(F("initspi"), 0);
-    #else //for ESP8266 we keep the old UI
-      Settings.InitSPI                = isFormItemChecked(F("initspi")); // SPI Init
-    #endif
+    #endif // if FEATURE_I2C_MULTIPLE
+    
+    // EEPROM settings
+    #if FEATURE_EEPROM_EXTERNAL
+    bool eepromChanged = false;
+    int tmp = getFormItemInt(F("eepromtype"),
+                             static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C256));
+    eepromChanged |= tmp != Settings.EEPROMExternalType();
+
+    Settings.EEPROMExternalType(tmp);
+    tmp = getFormItemInt(F("i2c_eeprom"), 0);
+    eepromChanged |= tmp != Settings.EEPROMExternalI2CAddress();
+    Settings.EEPROMExternalI2CAddress(tmp);
+    
+    #  if FEATURE_I2C_MULTIPLE
+    const uint8_t i2cBus = getFormItemInt(F("pi2cbuseeprom"), 0);
+    eepromChanged |= i2cBus != Settings.getI2CInterfaceEEPROM();
+    set3BitToUL(Settings.I2C_peripheral_bus, I2C_PERIPHERAL_BUS_EEPROM, i2cBus);
+    #endif // if FEATURE_I2C_MULTIPLE
+
+    # if FEATURE_I2CMULTIPLEXER
+    #  if !FEATURE_I2C_MULTIPLE
+    constexpr uint8_t i2cBus = 0;
+    #  endif // if FEATURE_I2C_MULTIPLE
+
+    bool muxPortsOption{};
+    int selectedPorts{};
+    GetI2CMultiplexerFromPage(i2cBus, muxPortsOption, selectedPorts);
+    uint16_t muxFlags{};
+    bitWrite(muxFlags, EEPROM_MUX_FLAGS_MULTI, muxPortsOption);
+    set8BitToUL(muxFlags, EEPROM_MUX_FLAGS_PORT, selectedPorts);
+    eepromChanged |= muxFlags != Settings.EEPROMExternalI2CMultiplexerFlags();
+    Settings.EEPROMExternalI2CMultiplexerFlags(muxFlags);
+    # endif // if FEATURE_I2CMULTIPLEXER
+
+    #endif // if FEATURE_EEPROM_EXTERNAL
+
+    #if defined(ESP32) && FEATURE_SD
+    Settings.setSPIBusForSDCard(getFormItemInt(F("sdspibus"), 0));
+    #endif // if defined(ESP32) && FEATURE_SD
     Settings.Pin_sd_cs                = getFormItemInt(F("sd"));
-#ifdef HAS_ETHERNET
-    Settings.ETH_Phy_Addr             = getFormItemInt(F("ethphy"));
-    Settings.ETH_Pin_mdc              = getFormItemInt(F("ethmdc"));
-    Settings.ETH_Pin_mdio             = getFormItemInt(F("ethmdio"));
-    Settings.ETH_Pin_power            = getFormItemInt(F("ethpower"));
-    Settings.ETH_Phy_Type             = static_cast<EthPhyType_t>(getFormItemInt(F("ethtype")));
-    Settings.ETH_Clock_Mode           = static_cast<EthClockMode_t>(getFormItemInt(F("ethclock")));
-    Settings.NetworkMedium            = static_cast<NetworkMedium_t>(getFormItemInt(F("ethwifi")));
-#endif
     int gpio = 0;
 
     while (gpio <= MAX_GPIO) {
-      if (Settings.UseSerial && ((gpio == 1) || (gpio == 3))) {
+      if (isSerialConsolePin(gpio)) {
         // do not add the pin state select for these pins.
       } else {
-        int  pinnr = -1;
-        bool input, output, warning;
-
-        if (getGpioInfo(gpio, pinnr, input, output, warning)) {
-          String int_pinlabel = "p";
+        if (validGpio(gpio)) {
+          String int_pinlabel('p');
           int_pinlabel       += gpio;
           Settings.setPinBootState(gpio, static_cast<PinBootState>(getFormItemInt(int_pinlabel)));
         }
       }
       ++gpio;
     }
-    String error = SaveSettings();
+    error += SaveSettings();
     addHtmlError(error);
-    if (error.isEmpty()) {
-      // Apply I2C settings.
-      initI2C();
+    #if FEATURE_EEPROM_EXTERNAL
+    if (error.isEmpty() && eepromChanged) {
+      ESPEasy::eeprom::initializeEEPROMExternal();
     }
+    #endif // if FEATURE_EEPROM_EXTERNAL
   }
 
-  addHtml(F("<form  method='post'>"));
+  html_add_form();
+
   html_table_class_normal();
-  addFormHeader(F("Hardware Settings"), F("ESPEasy#Hardware_page"), F("Hardware/Hardware.html"));
+  addFormHeader(F("Hardware Settings"), F("RTDHardware/Hardware.html"));
 
   addFormSubHeader(F("Wifi Status LED"));
-  addFormPinSelect(PinSelectPurpose::Generic_output, formatGpioName_output("LED"), F("pled"), Settings.Pin_status_led);
+  addFormPinSelect(PinSelectPurpose::Status_led, formatGpioName_output(F("LED")), F("pled"), Settings.Pin_status_led);
   addFormCheckBox(F("Inversed LED"), F("pledi"), Settings.Pin_status_led_Inversed);
-  addFormNote(F("Use &rsquo;GPIO-2 (D4)&rsquo; with &rsquo;Inversed&rsquo; checked for onboard LED"));
+  addFormNote(F("Use &rsquo;GPIO-2"
+#ifdef ESP8266
+    " (D4)"
+#endif
+    "&rsquo; with &rsquo;Inversed&rsquo; checked for onboard LED"));
 
   addFormSubHeader(F("Reset Pin"));
-  addFormPinSelect(PinSelectPurpose::Generic_input, formatGpioName_input(F("Switch")), F("pres"), Settings.Pin_Reset);
+  addFormPinSelect(PinSelectPurpose::Reset_pin, formatGpioName_input(F("Switch")), F("pres"), Settings.Pin_Reset);
   addFormNote(F("Press about 10s for factory reset"));
 
-  addFormSubHeader(F("I2C Interface"));
-  addFormPinSelectI2C(formatGpioName_bidirectional(F("SDA")), F("psda"), Settings.Pin_i2c_sda);
-  addFormPinSelectI2C(formatGpioName_output(F("SCL")),        F("pscl"), Settings.Pin_i2c_scl);
-  addFormNumericBox(F("Clock Speed"), F("pi2csp"), Settings.I2C_clockSpeed, 100, 3400000);
-  addUnit(F("Hz"));
-  addFormNote(F("Use 100 kHz for old I2C devices, 400 kHz is max for most."));
-  addFormNumericBox(F("Slow device Clock Speed"), F("pi2cspslow"), Settings.I2C_clockSpeed_Slow, 100, 3400000);
-  addUnit(F("Hz"));
-#ifdef FEATURE_I2CMULTIPLEXER
-  addFormSubHeader(F("I2C Multiplexer"));
-  // Select the type of multiplexer to use
-  {
-    const __FlashStringHelper * i2c_muxtype_options[5];
-    int    i2c_muxtype_choices[5];
-    i2c_muxtype_options[0] = F("- None -");
-    i2c_muxtype_choices[0] = -1;
-    i2c_muxtype_options[1] = F("TCA9548a - 8 channel");
-    i2c_muxtype_choices[1] = I2C_MULTIPLEXER_TCA9548A;
-    i2c_muxtype_options[2] = F("TCA9546a - 4 channel");
-    i2c_muxtype_choices[2] = I2C_MULTIPLEXER_TCA9546A;
-    i2c_muxtype_options[3] = F("TCA9543a - 2 channel");
-    i2c_muxtype_choices[3] = I2C_MULTIPLEXER_TCA9543A;
-    i2c_muxtype_options[4] = F("PCA9540 - 2 channel (experimental)");
-    i2c_muxtype_choices[4] = I2C_MULTIPLEXER_PCA9540;
-    addFormSelector(F("I2C Multiplexer type"), F("pi2cmuxtype"), 5, i2c_muxtype_options, i2c_muxtype_choices, Settings.I2C_Multiplexer_Type);
-  }
-  // Select the I2C address for a port multiplexer
-  {
-    String  i2c_mux_options[9];
-    int     i2c_mux_choices[9];
-    uint8_t mux_opt = 0;
-    i2c_mux_options[mux_opt] = F("- None -");
-    i2c_mux_choices[mux_opt] = I2C_MULTIPLEXER_NONE;
-    for (int8_t x = 0; x < 8; x++) {
-      mux_opt++;
-      i2c_mux_options[mux_opt] = formatToHex_decimal(0x70 + x);
-      if (x == 0) { // PCA9540 has a fixed address 0f 0x70
-        i2c_mux_options[mux_opt] += F(" [TCA9543a/6a/8a, PCA9540]");
-      } else if (x < 4) {
-        i2c_mux_options[mux_opt] += F(" [TCA9543a/6a/8a]");
-      } else {
-        i2c_mux_options[mux_opt] += F(" [TCA9546a/8a]");
-      }
-      i2c_mux_choices[mux_opt] = 0x70 + x;
-    }
-    addFormSelector(F("I2C Multiplexer address"), F("pi2cmuxaddr"), mux_opt + 1, i2c_mux_options, i2c_mux_choices, Settings.I2C_Multiplexer_Addr);
-  }
-  addFormPinSelect(PinSelectPurpose::Generic_output, formatGpioName_output_optional("Reset"), F("pi2cmuxreset"), Settings.I2C_Multiplexer_ResetPin);
-  addFormNote(F("Will be pulled low to force a reset. Reset is not available on PCA9540."));
-#endif
+# if FEATURE_I2C_MULTIPLE
+  const uint8_t i2cMaxBusCount = Settings.getNrConfiguredI2C_buses();
 
-  // SPI Init
-  addFormSubHeader(F("SPI Interface"));
+  if (i2cMaxBusCount > 1) {
+    addFormSubHeader(F("PCF &amp; MCP Direct I/O"));
+    const uint8_t i2cBus = Settings.getI2CInterfacePCFMCP();
+    I2CInterfaceSelector(F("I2C Bus"),
+                         F("pi2cbuspcf"),
+                         i2cBus,
+                         false);
+
+  }
+# endif // if FEATURE_I2C_MULTIPLE
+
+  #if FEATURE_EEPROM_EXTERNAL
+  {
+    addFormSubHeader(F("External I2C EEPROM"));
+    const __FlashStringHelper*eepromOptions[] = {
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C256),
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C512),
+      #if EEPROM_SUPPORT_AT24C1024
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C1024),
+      #endif // if EEPROM_SUPPORT_AT24C1024
+      #if EEPROM_SUPPORT_AT24C2048
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C2048),
+      #endif // if EEPROM_SUPPORT_AT24C2048
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C32),
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C64),
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C128),
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC256),
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC512),
+      #if EEPROM_SUPPORT_AT24C1024
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC1M),
+      #endif // if EEPROM_SUPPORT_AT24C1024
+      #if EEPROM_SUPPORT_AT24C2048
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC2M),
+      #endif // if EEPROM_SUPPORT_AT24C2048
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC32),
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC64),
+      getEEPROMName(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC128),
+    };
+    const int eepromTypes[] = {
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C256),
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C512),
+      #if EEPROM_SUPPORT_AT24C1024
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C1024),
+      #endif // if EEPROM_SUPPORT_AT24C1024
+      #if EEPROM_SUPPORT_AT24C2048
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C2048),
+      #endif // if EEPROM_SUPPORT_AT24C2048
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C32),
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C64),
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::AT24C128),
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC256),
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC512),
+      #if EEPROM_SUPPORT_AT24C1024
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC1M),
+      #endif // if EEPROM_SUPPORT_AT24C1024
+      #if EEPROM_SUPPORT_AT24C2048
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC2M),
+      #endif // if EEPROM_SUPPORT_AT24C2048
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC32),
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC64),
+      static_cast<int>(ESPEasy::eeprom::EEPROMExternal_Type_e::MB85RC128),
+    };
+    constexpr uint8_t eepromSizeCount = NR_ELEMENTS(eepromTypes);
+    FormSelectorOptions eepromSizeSelector(eepromSizeCount, eepromOptions, eepromTypes);
+    eepromSizeSelector.addFormSelector(F("EEPROM Model/size"), F("eepromtype"), Settings.EEPROMExternalType());
+
+    const uint8_t i2cAddressValues[] = { 0, 0x50, 0x51, 0x52, 0x53, 0x54, 0x55, 0x56, 0x57 };
+    constexpr int nrAddressOptions   = NR_ELEMENTS(i2cAddressValues);
+
+    addFormSelectorI2C(F("i2c_eeprom"), nrAddressOptions, i2cAddressValues, Settings.EEPROMExternalI2CAddress());
+
+    #if FEATURE_I2C_MULTIPLE
+    const uint8_t i2cBus = Settings.getI2CInterfaceEEPROM();
+    if (i2cMaxBusCount > 1) {
+      I2CInterfaceSelector(F("I2C Bus"),
+                          F("pi2cbuseeprom"),
+                          i2cBus,
+                          false);
+
+    }
+    #endif // if FEATURE_I2C_MULTIPLE
+    
+    #if FEATURE_I2CMULTIPLEXER
+    # if !FEATURE_I2C_MULTIPLE
+    constexpr uint8_t i2cBus = 0;
+    # endif // if FEATURE_I2C_MULTIPLE
+    const uint16_t eepromMux = Settings.EEPROMExternalI2CMultiplexerFlags();
+    ShowI2CMultiplexerUI(i2cBus,
+                         bitRead(eepromMux, EEPROM_MUX_FLAGS_MULTI),
+                         get8BitFromUL(eepromMux, EEPROM_MUX_FLAGS_PORT)); // Re-used from DevicesPage
+    #endif // if FEATURE_I2CMULTIPLEXER
+
+    const bool eepromChecked = ESPEasy::eeprom::checkEEPROMEnabled() > 0;
+    addRowLabel(F("EEPROM Enabled"));
+    addEnabled(eepromChecked);
+    if (eepromChecked && ESPEasy::eeprom::isEEPROMExternalWriteProtected()) {
+      addHtml(F(" Write-protected!"));
+    } 
+    if (eepromChecked) {
+      addRowLabel(F("'WriteEE' slots available"));
+      addHtmlInt(ESPEasy::eeprom::getEEPROMMaxSlots());
+    }
+  }
+  #endif // if FEATURE_EEPROM_EXTERNAL
+
+#if FEATURE_SD
+  addFormSubHeader(F("SD Card"));
   #ifdef ESP32
-  {
-    const __FlashStringHelper * spi_options[3] = { 
-      F("Disabled"), 
-      F("VSPI: CLK=GPIO-18, MISO=GPIO-19, MOSI=GPIO-23"), 
-      F("HSPI: CLK=GPIO-14, MISO=GPIO-12, MOSI=GPIO-13")};
-    addFormSelector(F("Init SPI"), F("initspi"), 3, spi_options, NULL, Settings.InitSPI);
-    addFormNote(F("Changing SPI settings requires to manualy restart"));
+  if (getSPIBusCount() > 1 && (Settings.getNrConfiguredSPI_buses() != 0)) {
+    uint8_t spiBus = Settings.getSPIBusForSDCard();
+    SPIInterfaceSelector(F("SPI Bus"),
+                        F("sdspibus"),
+                        spiBus);
   }
-  #else //for ESP8266 we keep the existing UI
-  addFormCheckBox(F("Init SPI"), F("initspi"), Settings.InitSPI>0);
-  addFormNote(F("CLK=GPIO-14 (D5), MISO=GPIO-12 (D6), MOSI=GPIO-13 (D7)"));
-  #endif
-  addFormNote(F("Chip Select (CS) config must be done in the plugin"));
-  
-#ifdef FEATURE_SD
-  addFormPinSelect(PinSelectPurpose::Generic_output, formatGpioName_output(F("SD Card CS")), F("sd"), Settings.Pin_sd_cs);
-#endif // ifdef FEATURE_SD
-  
-#ifdef HAS_ETHERNET
-  addFormSubHeader(F("Ethernet"));
-  addRowLabel_tr_id(F("Preferred network medium"), F("ethwifi"));
-  {
-    const __FlashStringHelper * ethWifiOptions[2] = {
-      toString(NetworkMedium_t::WIFI), 
-      toString(NetworkMedium_t::Ethernet) 
-      };
-    addSelector(F("ethwifi"), 2, ethWifiOptions, NULL, NULL, static_cast<int>(Settings.NetworkMedium), false, true);
-  }
-  addFormNote(F("Change Switch between WiFi and Ethernet requires reboot to activate"));
-  addRowLabel_tr_id(F("Ethernet PHY type"), F("ethtype"));
-  {
-    const __FlashStringHelper * ethPhyTypes[2] = { 
-      toString(EthPhyType_t::LAN8710), 
-      toString(EthPhyType_t::TLK110) };
-    addSelector(F("ethtype"), 2, ethPhyTypes, NULL, NULL, static_cast<int>(Settings.ETH_Phy_Type), false, true);
-  }
-  addFormNumericBox(F("Ethernet PHY Address"), F("ethphy"), Settings.ETH_Phy_Addr, 0, 255);
-  addFormNote(F("I&sup2;C-address of Ethernet PHY (0 or 1 for LAN8720, 31 for TLK110)"));
-  addFormPinSelect(PinSelectPurpose::Ethernet, formatGpioName_output(F("Ethernet MDC pin")), F("ethmdc"), Settings.ETH_Pin_mdc);
-  addFormPinSelect(PinSelectPurpose::Ethernet, formatGpioName_input(F("Ethernet MIO pin")), F("ethmdio"), Settings.ETH_Pin_mdio);
-  addFormPinSelect(PinSelectPurpose::Ethernet, formatGpioName_output(F("Ethernet Power pin")), F("ethpower"), Settings.ETH_Pin_power);
-  addRowLabel_tr_id(F("Ethernet Clock"), F("ethclock"));
-  {
-    const __FlashStringHelper * ethClockOptions[4] = { 
-      toString(EthClockMode_t::Ext_crystal_osc),
-      toString(EthClockMode_t::Int_50MHz_GPIO_0),
-      toString(EthClockMode_t::Int_50MHz_GPIO_16),
-      toString(EthClockMode_t::Int_50MHz_GPIO_17_inv)
-      };
-    addSelector(F("ethclock"), 4, ethClockOptions, NULL, NULL, static_cast<int>(Settings.ETH_Clock_Mode), false, true);
-  }
-#endif // ifdef HAS_ETHERNET
+  #endif // ifdef ESP32
+  addFormPinSelect(PinSelectPurpose::SD_Card, formatGpioName_output(F("SD Card CS")), F("sd"), Settings.Pin_sd_cs);
+#endif // if FEATURE_SD
 
   addFormSubHeader(F("GPIO boot states"));
 
@@ -222,8 +263,7 @@ void handle_hardware() {
   html_end_table();
   html_end_form();
 
-  sendHeadandTail_stdtemplate(_TAIL);
-  TXBuffer.endStream();
+  sendTail_stdtemplate();
 }
 
 #endif // ifdef WEBSERVER_HARDWARE

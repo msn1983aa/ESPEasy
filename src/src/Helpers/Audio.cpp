@@ -1,15 +1,22 @@
-#include "Audio.h"
+#include "../Helpers/Audio.h"
 
+#include "../DataStructs/TimingStats.h"
+#include "../ESPEasyCore/ESPEasyGPIO.h"
 #include "../Globals/RamTracker.h"
-#include "../Helpers/Hardware.h"
+#include "../Helpers/Hardware_GPIO.h"
+#include "../Helpers/Hardware_PWM.h"
+#include "../Helpers/StringConverter.h"
 
 
 /********************************************************************************************\
    Generate a tone of specified frequency on pin
  \*********************************************************************************************/
-bool tone_espEasy(uint8_t _pin, unsigned int frequency, unsigned long duration) {
+bool tone_espEasy(int8_t _pin, unsigned int frequency, uint32_t duration) {
+  if (!validGpio(_pin)) { return false; }
+
   // Duty cycle can be used as some kind of volume.
-  if (!set_Gpio_PWM_pct(_pin, 50, frequency)) return false;
+  if (!set_Gpio_PWM_pct(_pin, 50, frequency)) { return false; }
+
   if (duration > 0) {
     delay(duration);
     return set_Gpio_PWM(_pin, 0, frequency);
@@ -20,41 +27,179 @@ bool tone_espEasy(uint8_t _pin, unsigned int frequency, unsigned long duration) 
 /********************************************************************************************\
    Play RTTTL string on specified pin
  \*********************************************************************************************/
-#ifdef USE_RTTTL
-bool play_rtttl(uint8_t _pin, const char *p)
-{
-  #ifndef BUILD_NO_RAM_TRACKER
+#if FEATURE_RTTTL
+# if FEATURE_ANYRTTTL_LIB
+#  include <anyrtttl.h>
+#  include <pitches.h>
+#  if FEATURE_RTTTL_EVENTS
+#   include "../Globals/EventQueue.h"
+#   include "../Globals/Settings.h"
+static bool rtttlPlaying = false;
+#  endif // if FEATURE_RTTTL_EVENTS
+#  if FEATURE_ANYRTTTL_ASYNC
+static String rtttlMelody;
+
+static void clear_rtttl_melody() {
+  // The non-blocking play will read from a char pointer.
+  // So we must stop the playing before changing the string as it could otherwise lead to a crash.
+  if (anyrtttl::nonblocking::isPlaying()) { // If currently playing, cancel that
+    #ifndef BUILD_NO_DEBUG
+    addLog(LOG_LEVEL_INFO, F("RTTTL: Cancelling running song..."));
+    #endif // ifndef BUILD_NO_DEBUG
+    anyrtttl::nonblocking::stop();
+    #   if FEATURE_RTTTL_EVENTS
+
+    if (Settings.UseRules) {
+      eventQueue.add(F("RTTTL#Cancelled"));
+    }
+    rtttlPlaying = false;
+    #   endif // if FEATURE_RTTTL_EVENTS
+  }
+
+  free_string(rtttlMelody);
+}
+
+void set_rtttl_melody(String& melody) {
+  clear_rtttl_melody();
+  rtttlMelody = melody;
+}
+
+#  endif // if FEATURE_ANYRTTTL_ASYNC
+
+#  ifdef ESP32
+
+void esp32NoTone(uint8_t pin) {
+  ledcWrite(pin, 0);
+}
+
+void esp32Tone(uint8_t pin, unsigned int frq, unsigned long duration) {
+  ledcWriteTone(pin, frq); // pin, freq
+}
+
+void esp32ToneSetup(uint8_t pin) {
+  const uint8_t channel = attachLedChannel(pin); // Use defaults
+
+  setToneChannel(channel);                       // Claim channel for Tone use
+}
+
+static uint8_t rtttlPin = 255;
+#  endif // ifdef ESP32
+
+bool play_rtttl(int8_t _pin, const char *p) {
+  if (!validGpio(_pin)) { return false; }
+
+  // addLog(LOG_LEVEL_INFO, F("RTTTL: Using AnyRtttl"));
+
+  #  ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("play_rtttl"));
-  #endif
-  #define OCTAVE_OFFSET 0
+  #  endif // ifndef BUILD_NO_RAM_TRACKER
+
+  #  ifdef ESP32
+
+  esp32ToneSetup(_pin);
+  rtttlPin = _pin;
+
+  anyrtttl::setToneFunction(&esp32Tone);
+  anyrtttl::setNoToneFunction(&esp32NoTone);
+  #  endif // ifdef ESP32
+  #  ifdef ESP8266
+  anyrtttl::setNoToneFunction(&setInternalGPIOPullupMode);
+  #  endif // ifdef ESP8266
+  #  if FEATURE_ANYRTTTL_ASYNC
+
+  if (!rtttlMelody.isEmpty()) {
+    anyrtttl::nonblocking::begin(_pin, rtttlMelody.c_str());
+  } else {
+    anyrtttl::nonblocking::begin(_pin, p);
+  }
+  anyrtttl::nonblocking::play();
+  #   if FEATURE_RTTTL_EVENTS
+
+  if (Settings.UseRules) {
+    eventQueue.add(F("RTTTL#Started"));
+  }
+  rtttlPlaying = true;
+  #   endif // if FEATURE_RTTTL_EVENTS
+  #  else // if FEATURE_ANYRTTTL_ASYNC
+  anyrtttl::blocking::play(_pin, p);
+  #   ifdef ESP32
+  esp32NoTone(_pin);
+  detachLedChannel(_pin);
+  setInternalGPIOPullupMode(_pin);
+  #   endif // ifdef ESP32
+  #  endif // if FEATURE_ANYRTTTL_ASYNC
+  #  ifndef BUILD_NO_RAM_TRACKER
+  checkRAM(F("play_rtttl2"));
+  #  endif // ifndef BUILD_NO_RAM_TRACKER
+  return true;
+}
+
+#  if FEATURE_ANYRTTTL_ASYNC
+void update_rtttl() {
+  START_TIMER
+
+  if (anyrtttl::nonblocking::isPlaying()) {
+    anyrtttl::nonblocking::play();
+  } else {
+    #   ifdef ESP32
+    esp32NoTone(rtttlPin);
+    detachLedChannel(rtttlPin);
+    setInternalGPIOPullupMode(rtttlPin);
+    #   endif // ifdef ESP32
+    #   if FEATURE_RTTTL_EVENTS
+
+    if (rtttlPlaying) {
+      if (Settings.UseRules) {
+        eventQueue.add(F("RTTTL#Finished"));
+      }
+      rtttlPlaying = false;
+    }
+    #   endif // if FEATURE_RTTTL_EVENTS
+    clear_rtttl_melody(); // Release memory
+  }
+  STOP_TIMER(UPDATE_RTTTL);
+}
+
+#  endif // if FEATURE_ANYRTTTL_ASYNC
+
+# else // if FEATURE_ANYRTTTL_LIB
+bool play_rtttl(int8_t _pin, const char *p)
+{
+  if (!validGpio(_pin)) { return false; }
+
+  #  ifndef BUILD_NO_RAM_TRACKER
+  checkRAM(F("play_rtttl"));
+  #  endif // ifndef BUILD_NO_RAM_TRACKER
+  #  define OCTAVE_OFFSET 0
 
   // FIXME: Absolutely no error checking in here
 
   const int notes[] = { 0,
-                        262, 277,   294,  311,   330,  349,  370,  392,  415,  440,  466,  494,
-                        523, 554,   587,  622,   659,  698,  740,  784,  831,  880,  932,  988,
-                        1047,1109,  1175, 1245,  1319, 1397, 1480, 1568, 1661, 1760, 1865, 1976,
-                        2093,2217,  2349, 2489,  2637, 2794, 2960, 3136, 3322, 3520, 3729, 3951
+                        262, 277,   294,   311,   330,   349,   370,   392,   415,   440,   466,   494,
+                        523, 554,   587,   622,   659,   698,   740,   784,   831,   880,   932,   988,
+                        1047,1109,  1175,  1245,  1319,  1397,  1480,  1568,  1661,  1760,  1865,  1976,
+                        2093,2217,  2349,  2489,  2637,  2794,  2960,  3136,  3322,  3520,  3729,  3951
   };
 
 
   uint8_t default_dur = 4;
   uint8_t default_oct = 6;
-  int  bpm         = 63;
-  int  num;
-  long wholenote;
-  long duration;
+  int     bpm         = 63;
+  int     num;
+  long    wholenote;
+  long    duration;
   uint8_t note;
   uint8_t scale;
 
   // format: d=N,o=N,b=NNN:
   // find the start (skip name, etc)
 
-  while (*p != ':') { 
+  while (*p != ':') {
     p++; // ignore name
-    if (*p == 0) return false;
+
+    if (*p == 0) { return false; }
   }
-  p++;                     // skip ':'
+  p++; // skip ':'
 
   // get default duration
   if (*p == 'd')
@@ -186,9 +331,12 @@ bool play_rtttl(uint8_t _pin, const char *p)
       delay(duration / 10);
     }
   }
-  #ifndef BUILD_NO_RAM_TRACKER
+  setInternalGPIOPullupMode(_pin); // Turn off sound, Arduino _noTone() doesn't do that reliably
+  #  ifndef BUILD_NO_RAM_TRACKER
   checkRAM(F("play_rtttl2"));
-  #endif
+  #  endif // ifndef BUILD_NO_RAM_TRACKER
   return true;
 }
-#endif
+
+# endif // if FEATURE_ANYRTTTL_LIB
+#endif // if FEATURE_RTTTL

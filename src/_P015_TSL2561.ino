@@ -10,22 +10,25 @@
 // this plugin is based on the sparkfun library
 // written based on version 1.1.0 from https://github.com/sparkfun/SparkFun_TSL2561_Arduino_Library
 
+/** Changelog:
+ * 2025-01-12 tonhuisman: Add support for MQTT AutoDiscovery (partially)
+ */
 
-#include "src/PluginStructs/P015_data_struct.h"
+# include "src/PluginStructs/P015_data_struct.h"
 
-#define PLUGIN_015
-#define PLUGIN_ID_015        15
-#define PLUGIN_NAME_015       "Light/Lux - TSL2561"
-#define PLUGIN_VALUENAME1_015 "Lux"
-#define PLUGIN_VALUENAME2_015 "Infrared"
-#define PLUGIN_VALUENAME3_015 "Broadband"
-#define PLUGIN_VALUENAME4_015 "Ratio"
+# define PLUGIN_015
+# define PLUGIN_ID_015        15
+# define PLUGIN_NAME_015       "Light/Lux - TSL2561"
+# define PLUGIN_VALUENAME1_015 "Lux"
+# define PLUGIN_VALUENAME2_015 "Infrared"
+# define PLUGIN_VALUENAME3_015 "Broadband"
+# define PLUGIN_VALUENAME4_015 "Ratio"
 
 
-#define P015_I2C_ADDR    PCONFIG(0)
-#define P015_INTEGRATION PCONFIG(1)
-#define P015_SLEEP       PCONFIG(2)
-#define P015_GAIN        PCONFIG(3)
+# define P015_I2C_ADDR    PCONFIG(0)
+# define P015_INTEGRATION PCONFIG(1)
+# define P015_SLEEP       PCONFIG(2)
+# define P015_GAIN        PCONFIG(3)
 
 
 boolean Plugin_015(uint8_t function, struct EventStruct *event, String& string)
@@ -36,17 +39,15 @@ boolean Plugin_015(uint8_t function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
     {
-      Device[++deviceCount].Number           = PLUGIN_ID_015;
-      Device[deviceCount].Type               = DEVICE_TYPE_I2C;
-      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_TRIPLE;
-      Device[deviceCount].Ports              = 0;
-      Device[deviceCount].PullUpOption       = false;
-      Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].FormulaOption      = true;
-      Device[deviceCount].ValueCount         = 3;
-      Device[deviceCount].SendDataOption     = true;
-      Device[deviceCount].TimerOption        = true;
-      Device[deviceCount].GlobalSyncOption   = true;
+      auto& dev = Device[++deviceCount];
+      dev.Number         = PLUGIN_ID_015;
+      dev.Type           = DEVICE_TYPE_I2C;
+      dev.VType          = Sensor_VType::SENSOR_TYPE_TRIPLE;
+      dev.FormulaOption  = true;
+      dev.ValueCount     = 3;
+      dev.SendDataOption = true;
+      dev.TimerOption    = true;
+      dev.PluginStats    = true;
       break;
     }
 
@@ -65,49 +66,82 @@ boolean Plugin_015(uint8_t function, struct EventStruct *event, String& string)
       break;
     }
 
+    # if FEATURE_MQTT_DISCOVER
+    case PLUGIN_GET_DISCOVERY_VTYPES:
+    {
+      event->Par1 = static_cast<int>(Sensor_VType::SENSOR_TYPE_LUX_ONLY);
+      event->Par2 = static_cast<int>(Sensor_VType::SENSOR_TYPE_IR_ONLY);
+      event->Par3 = static_cast<int>(Sensor_VType::SENSOR_TYPE_LUX_ONLY);
+      success     = true;
+      break;
+    }
+    # endif // if FEATURE_MQTT_DISCOVER
+
     case PLUGIN_I2C_HAS_ADDRESS:
     case PLUGIN_WEBFORM_SHOW_I2C_PARAMS:
     {
-      const int i2cAddressValues[] = { TSL2561_ADDR, TSL2561_ADDR_1, TSL2561_ADDR_0 };
+      const uint8_t i2cAddressValues[] = { TSL2561_ADDR_0, TSL2561_ADDR, TSL2561_ADDR_1 };
+
       if (function == PLUGIN_WEBFORM_SHOW_I2C_PARAMS) {
-        addFormSelectorI2C(F("i2c_addr"), 3, i2cAddressValues, P015_I2C_ADDR);
+        addFormSelectorI2C(F("i2c_addr"), 3, i2cAddressValues, P015_I2C_ADDR, TSL2561_ADDR);
       } else {
         success = intArrayContains(3, i2cAddressValues, event->Par1);
       }
       break;
     }
 
+    # if FEATURE_I2C_GET_ADDRESS
+    case PLUGIN_I2C_GET_ADDRESS:
+    {
+      event->Par1 = P015_I2C_ADDR;
+      success     = true;
+      break;
+    }
+    # endif // if FEATURE_I2C_GET_ADDRESS
+
+    case PLUGIN_SET_DEFAULTS:
+    {
+      P015_I2C_ADDR = TSL2561_ADDR; // Default address
+
+      success = true;
+      break;
+    }
+
     case PLUGIN_WEBFORM_LOAD:
     {
       {
-        #define TSL2561_INTEGRATION_OPTION 3
-        const __FlashStringHelper * options[TSL2561_INTEGRATION_OPTION];
-        int    optionValues[TSL2561_INTEGRATION_OPTION];
-        optionValues[0] = 0x00;
-        options[0]      = F("13.7 ms");
-        optionValues[1] = 0x01;
-        options[1]      = F("101 ms");
-        optionValues[2] = 0x02;
-        options[2]      = F("402 ms");
-        addFormSelector(F("Integration time"), F("p015_integration"), TSL2561_INTEGRATION_OPTION, options, optionValues, P015_INTEGRATION);
+        const __FlashStringHelper *options[] = {
+          F("13.7"),
+          F("101"),
+          F("402"),
+        };
+        constexpr size_t optionCount = NR_ELEMENTS(options);
+        const FormSelectorOptions selector(optionCount, options);
+        selector.addFormSelector(F("Integration time"), F("pintegration"),  P015_INTEGRATION);
+        addUnit(F("ms"));
       }
 
-      addFormCheckBox(F("Send sensor to sleep:"), F("p015_sleep"),
+      addFormCheckBox(F("Send sensor to sleep:"), F("psleep"),
                       P015_SLEEP);
 
       {
-        #define TSL2561_GAIN_OPTION 4
-        const __FlashStringHelper * options[TSL2561_GAIN_OPTION];
-        int    optionValues[TSL2561_GAIN_OPTION];
-        optionValues[0] = P015_NO_GAIN;
-        options[0]      = F("No Gain");
-        optionValues[1] = P015_16X_GAIN;
-        options[1]      = F("16x Gain");
-        optionValues[2] = P015_AUTO_GAIN;
-        options[2]      = F("Auto Gain");
-        optionValues[3] = P015_EXT_AUTO_GAIN;
-        options[3]      = F("Extended Auto Gain");
-        addFormSelector(F("Gain"), F("p015_gain"), TSL2561_GAIN_OPTION, options, optionValues, P015_GAIN);
+        const __FlashStringHelper *options[] = {
+          F("No Gain"),
+          F("16x Gain"),
+          F("Auto Gain"),
+          F("Extended Auto Gain"),
+        };
+        /*
+        const int optionValues[] = {
+          P015_NO_GAIN,
+          P015_16X_GAIN,
+          P015_AUTO_GAIN,
+          P015_EXT_AUTO_GAIN,
+        };
+        */
+        constexpr size_t optionCount = NR_ELEMENTS(options);
+        const FormSelectorOptions selector(optionCount, options/*, optionValues*/);
+        selector.addFormSelector(F("Gain"), F("pgain"),  P015_GAIN);
       }
 
       success = true;
@@ -117,9 +151,9 @@ boolean Plugin_015(uint8_t function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_SAVE:
     {
       P015_I2C_ADDR    = getFormItemInt(F("i2c_addr"));
-      P015_INTEGRATION = getFormItemInt(F("p015_integration"));
-      P015_SLEEP       = isFormItemChecked(F("p015_sleep"));
-      P015_GAIN        = getFormItemInt(F("p015_gain"));
+      P015_INTEGRATION = getFormItemInt(F("pintegration"));
+      P015_SLEEP       = isFormItemChecked(F("psleep"));
+      P015_GAIN        = getFormItemInt(F("pgain"));
 
       success = true;
       break;
@@ -127,13 +161,7 @@ boolean Plugin_015(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_INIT:
     {
-      initPluginTaskData(event->TaskIndex, new (std::nothrow) P015_data_struct(P015_I2C_ADDR, P015_GAIN, P015_INTEGRATION));
-      P015_data_struct *P015_data =
-        static_cast<P015_data_struct *>(getPluginTaskData(event->TaskIndex));
-
-      if (nullptr != P015_data) {
-        success = true;
-      }
+      success = initPluginTaskData(event->TaskIndex, new (std::nothrow) P015_data_struct(P015_I2C_ADDR, P015_GAIN, P015_INTEGRATION));
       break;
     }
 
@@ -145,14 +173,19 @@ boolean Plugin_015(uint8_t function, struct EventStruct *event, String& string)
       if (nullptr != P015_data) {
         P015_data->begin();
 
+        float luxVal, infraredVal, broadbandVal, ir_broadband_ratio{};
+
         success = P015_data->performRead(
-          UserVar[event->BaseVarIndex],      // lux
-          UserVar[event->BaseVarIndex + 1],  // infrared
-          UserVar[event->BaseVarIndex + 2],  // broadband
-          UserVar[event->BaseVarIndex + 3]); // ir_broadband_ratio
+          luxVal, infraredVal, broadbandVal, ir_broadband_ratio);
+        UserVar.setFloat(event->TaskIndex, 0, luxVal);
+        UserVar.setFloat(event->TaskIndex, 1, infraredVal);
+        UserVar.setFloat(event->TaskIndex, 2, broadbandVal);
+        UserVar.setFloat(event->TaskIndex, 3, ir_broadband_ratio);
 
         if (P015_SLEEP) {
-          addLog(LOG_LEVEL_DEBUG_MORE, F("TSL2561: sleeping..."));
+          # ifndef BUILD_NO_DEBUG
+          addLog(LOG_LEVEL_DEBUG, F("TSL2561: sleeping..."));
+          # endif // ifndef BUILD_NO_DEBUG
           P015_data->setPowerDown();
         }
       }

@@ -1,8 +1,11 @@
 #ifndef HELPERS_MODBUS_RTU_H
 #define HELPERS_MODBUS_RTU_H
 
+#include "../../ESPEasy_common.h"
 
-#include <Arduino.h>
+#if FEATURE_MODBUS
+
+#include "../../ESPEasy_common.h"
 #include <ESPeasySerial.h>
 
 
@@ -44,7 +47,7 @@
 
 
 struct ModbusRTU_struct  {
-  ModbusRTU_struct();
+  ModbusRTU_struct() = default;
 
   ~ModbusRTU_struct();
 
@@ -115,11 +118,11 @@ struct ModbusRTU_struct  {
         String hexvalue(buffer[i], HEX);
         hexvalue.toUpperCase();
         log += hexvalue;
-        log += F(" ");
+        log += ' ';
       }
-      log += F("(");
+      log += '(';
       log += length;
-      log += F(")");
+      log += ')';
       return log;
      }
    */
@@ -217,5 +220,6 @@ private:
   ESPeasySerial *easySerial = nullptr;
 };
 
+#endif
 
 #endif // HELPERS_MODBUS_RTU_H

@@ -1,5 +1,4 @@
-#ifndef WEBSERVER_WEBSERVER_DOWNLOADPAGE_H
-#define WEBSERVER_WEBSERVER_DOWNLOADPAGE_H
+#pragma once
 
 #include "../WebServer/common.h"
 
@@ -9,8 +8,8 @@
 // Web Interface download page
 // ********************************************************************************
 void handle_download();
-
+# if FEATURE_TARSTREAM_SUPPORT
+void handle_full_backup();
+void handle_full_backup_no_usr_pwd();
+# endif // if FEATURE_TARSTREAM_SUPPORT
 #endif // ifdef WEBSERVER_DOWNLOAD
-
-
-#endif // ifndef WEBSERVER_WEBSERVER_DOWNLOADPAGE_H

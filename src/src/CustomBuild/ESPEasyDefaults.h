@@ -1,10 +1,17 @@
-#ifndef ESPEASY_DEFAULTS_H_
-#define ESPEASY_DEFAULTS_H_
+#ifndef CUSTOMBUILD_ESPEASY_DEFAULTS_H_
+#define CUSTOMBUILD_ESPEASY_DEFAULTS_H_
 
 // Needed to make sure Custom.h is used.
 #include "../../ESPEasy_common.h"
 
-#include "../DataTypes/NetworkMedium.h"
+#include "../../ESPEasy/net/DataTypes/NetworkMedium.h"
+
+
+#include "../Helpers/Hardware_defines.h"
+
+#ifdef ESP32P4
+#include <pins_arduino.h>
+#endif
 
 // ********************************************************************************
 //   User specific configuration
@@ -31,8 +38,46 @@
 #ifndef DEFAULT_AP_SUBNET
 #define DEFAULT_AP_SUBNET   255,255,255,0       // Enter IP address (comma separated) for AP (config) mode
 #endif
+#ifndef DEFAULT_AP_DNS
+#define DEFAULT_AP_DNS      1,1,1,1             // Cloudflare DNS: 1.1.1.1 and 1.0.0.1
+                                                // Alternatives
+                                                // Cleanbrowsing: 185.228.168.9 and 185.228.169.9
+                                                // Google Public DNS: 8.8.8.8 and 8.8.4.4
+                                                // Quad9:  9.9.9.9 and 149.112.112.112
+                                                // OpenDNS: 208.67.222.222 and 208.67.220.220
+                                                // Comodo Secure DNS: 8.26.56.26 and 8.20.247.20
+#endif
 #ifndef DEFAULT_AP_KEY
 #define DEFAULT_AP_KEY      "configesp"         // Enter network WPA key for AP (config) mode
+#endif
+
+#ifndef DEFAULT_AP_ROUTE_PRIO
+#define DEFAULT_AP_ROUTE_PRIO                10 // ESP32-only default route priority
+#endif
+
+#ifndef DEFAULT_AP_STARTUP_DELAY
+#define DEFAULT_AP_STARTUP_DELAY          10000 // Delay (in ms) after boot before starting the interface
+#endif
+
+#ifndef DEFAULT_AP_IS_FALLBACK
+#define DEFAULT_AP_IS_FALLBACK              true // Whether or not the WiFi AP interface should be considered a fallback interface
+#endif
+
+#ifndef DEFAULT_AP_START_FALLBACK_NO_CRED
+#define DEFAULT_AP_START_FALLBACK_NO_CRED   true // Whether or not the WiFi AP interface should be started if there are no WiFi credentials
+#endif
+
+#ifndef DEFAULT_AP_DO_NOT_START_CONN_FAIL
+#define DEFAULT_AP_DO_NOT_START_CONN_FAIL   false // Whether or not the WiFi AP interface should start on failed connection attempts
+#endif
+
+#ifndef DEFAULT_AP_AUTOSTART_MAX_UPTIME_M
+#define DEFAULT_AP_AUTOSTART_MAX_UPTIME_M       0 // Max uptime (in minutes) in which the AP interface is allowed to automatically start
+#endif
+
+
+#ifndef DEFAULT_AP_FALLBACK_MINIMAL_ON_TIME_SEC
+#define DEFAULT_AP_FALLBACK_MINIMAL_ON_TIME_SEC  60  // Minimal time to leave the AP on to allow a user to connect to it for entering setup
 #endif
 
 // --- Wifi Client Mode -----------------------------------------------------------------------------
@@ -51,6 +96,65 @@
 #ifndef DEFAULT_WIFI_INCLUDE_HIDDEN_SSID  
 #define DEFAULT_WIFI_INCLUDE_HIDDEN_SSID false  // Allow to connect to hidden SSID APs
 #endif
+
+#ifndef DEFAULT_STA_APPEND_NW_NAME_TO_HOSTNAME
+#define DEFAULT_STA_APPEND_NW_NAME_TO_HOSTNAME  false
+#endif
+
+#ifndef DEFAULT_AP_APPEND_NW_NAME_TO_HOSTNAME
+#define DEFAULT_AP_APPEND_NW_NAME_TO_HOSTNAME  true
+#endif
+
+#ifndef DEFAULT_ETH_APPEND_NW_NAME_TO_HOSTNAME
+#define DEFAULT_ETH_APPEND_NW_NAME_TO_HOSTNAME  true
+#endif
+
+#ifndef DEFAULT_PPP_APPEND_NW_NAME_TO_HOSTNAME
+#define DEFAULT_PPP_APPEND_NW_NAME_TO_HOSTNAME  true
+#endif
+
+
+#ifndef DEFAULT_STA_ROUTE_PRIO
+#define DEFAULT_STA_ROUTE_PRIO              100 // ESP32-only default route priority
+#endif
+
+#ifndef DEFAULT_STA_STARTUP_DELAY
+# if defined(BOARD_HAS_SDIO_ESP_HOSTED) && defined(ESP32P4)
+// Allow longer delay to give any Eth a chance to start
+#define DEFAULT_STA_STARTUP_DELAY           5000 // Delay (in ms) after boot before starting the interface
+#else
+#define DEFAULT_STA_STARTUP_DELAY           1000 // Delay (in ms) after boot before starting the interface
+#endif
+#endif
+
+#ifndef DEFAULT_STA_IS_FALLBACK
+# if defined(BOARD_HAS_SDIO_ESP_HOSTED) && defined(ESP32P4)
+#define DEFAULT_STA_IS_FALLBACK              true 
+#else
+#define DEFAULT_STA_IS_FALLBACK              false
+#endif
+#endif
+
+#ifndef DEFAULT_ETH_ROUTE_PRIO
+#define DEFAULT_ETH_ROUTE_PRIO              150 // ESP32-only default route priority
+#endif
+
+#ifndef DEFAULT_ENABLED_NW001
+#define DEFAULT_ENABLED_NW001               1   // Wifi-STA enabled by default
+#endif
+#ifndef DEFAULT_ENABLED_NW002
+#define DEFAULT_ENABLED_NW002               1   // Wifi-AP enabled by default
+#endif
+#ifndef DEFAULT_ENABLED_NW003
+#define DEFAULT_ENABLED_NW003               0   // RMII Ethernet disabled by default, except for P4
+#endif
+#ifndef DEFAULT_ENABLED_NW004
+#define DEFAULT_ENABLED_NW004               0   // SPI Ethernet disabled by default
+#endif
+#ifndef DEFAULT_ENABLED_NW005
+#define DEFAULT_ENABLED_NW005               0   // PPP disabled by default
+#endif
+
 #ifndef DEFAULT_USE_STATIC_IP
 #define DEFAULT_USE_STATIC_IP   false           // (true|false) enabled or disabled static IP
 #endif
@@ -83,7 +187,7 @@
 #endif
 
 #ifndef DEFAULT_WIFI_CONNECTION_TIMEOUT
-#define DEFAULT_WIFI_CONNECTION_TIMEOUT  10000  // minimum timeout in ms for WiFi to be connected.
+#define DEFAULT_WIFI_CONNECTION_TIMEOUT  20000  // minimum timeout in ms for WiFi to be connected.
 #endif
 #ifndef DEFAULT_WIFI_FORCE_BG_MODE
 #define DEFAULT_WIFI_FORCE_BG_MODE       false  // when set, only allow to connect in 802.11B or G mode (not N)
@@ -92,7 +196,16 @@
 #define DEFAULT_WIFI_RESTART_WIFI_CONN_LOST  false // Perform wifi off and on when connection was lost.
 #endif
 #ifndef DEFAULT_ECO_MODE
+#ifdef CORE32SOLO1
+// ESP32-solo1 will be the "go to build" for unknown devices.
+// So best to use the CPU frequency reported by the ESP's e-fuses.
+// When enabling eco power mode, the max. CPU frequency is set to the frequency read from these efuses.
+// Also, if a vendor really needs to cut the last cent from the BOM by picking the solo1, what else might be done to cut costs?
+// Wouldn't be surprised if the power supply of those units isn't that good.
+#define DEFAULT_ECO_MODE                 true   // When set, make idle calls between executing tasks.
+#else
 #define DEFAULT_ECO_MODE                 false   // When set, make idle calls between executing tasks.
+#endif
 #endif
 #ifndef DEFAULT_WIFI_NONE_SLEEP
 #define DEFAULT_WIFI_NONE_SLEEP          false  // When set, the wifi will be set to no longer sleep (more power used and need reboot to reset mode)
@@ -108,8 +221,8 @@
 #define DEFAULT_SEND_TO_HTTP_ACK         false // Wait for ack with SendToHttp command.
 #endif
 
-#ifndef DEFAULT_AP_DONT_FORCE_SETUP                       
-#define DEFAULT_AP_DONT_FORCE_SETUP      false // Allow optional usage of Sensor without WIFI avaiable  // When set you can use the Sensor in AP-Mode without beeing forced to /setup                                                 
+#ifndef DEFAULT_AP_FORCE_SETUP                       
+#define DEFAULT_AP_FORCE_SETUP       true  // When set, start Captive Portal to redirect user to web interface when connecting to AP
 #endif
 
 #ifndef DEFAULT_DONT_ALLOW_START_AP
@@ -130,6 +243,9 @@
 #endif
 #ifndef DEFAULT_CONTROLLER_PASS
 #define DEFAULT_CONTROLLER_PASS    ""                                       // Default controller Password
+#endif
+#ifndef DEFAULT_CONTROLLER_TIMEOUT
+#define DEFAULT_CONTROLLER_TIMEOUT 500
 #endif
 
 // using a default template, you also need to set a DEFAULT PROTOCOL to a suitable MQTT protocol !
@@ -172,11 +288,59 @@
                                                 //   9 = FHEM HTTP
 #endif
 
+#ifndef DEFAULT_CONSOLE_PORT
+#if USES_HWCDC
+#define DEFAULT_CONSOLE_PORT 7    // 7 = ESPEasySerialPort::usb_hw_cdc
+#elif USES_USBCDC
+#define DEFAULT_CONSOLE_PORT 8    // 8 = ESPEasySerialPort::usb_cdc_0
+#else
+#define DEFAULT_CONSOLE_PORT 2    // 2 = ESPEasySerialPort::serial0
+#endif
+#endif
+#ifndef DEFAULT_CONSOLE_PORT_RXPIN
+#define DEFAULT_CONSOLE_PORT_RXPIN  SOC_RX0
+#endif
+#ifndef DEFAULT_CONSOLE_PORT_TXPIN
+#define DEFAULT_CONSOLE_PORT_TXPIN  SOC_TX0
+#endif
+#ifndef DEFAULT_CONSOLE_SER0_FALLBACK
+#if USES_HWCDC
+#define DEFAULT_CONSOLE_SER0_FALLBACK  1
+#elif USES_USBCDC
+#define DEFAULT_CONSOLE_SER0_FALLBACK  1
+#else
+#define DEFAULT_CONSOLE_SER0_FALLBACK  0
+#endif
+#endif
+
+
 #ifndef DEFAULT_PIN_I2C_SDA
+#ifdef ESP8266
 #define DEFAULT_PIN_I2C_SDA              4
 #endif
+#ifdef ESP32
+#define DEFAULT_PIN_I2C_SDA              -1                // Undefined
+#endif
+#endif
+#ifndef DEFAULT_PIN_I2C2_SDA
+#define DEFAULT_PIN_I2C2_SDA             -1                // Undefined
+#endif
+#ifndef DEFAULT_PIN_I2C3_SDA
+#define DEFAULT_PIN_I2C3_SDA             -1                // Undefined
+#endif
 #ifndef DEFAULT_PIN_I2C_SCL
+#ifdef ESP8266
 #define DEFAULT_PIN_I2C_SCL              5
+#endif
+#ifdef ESP32
+#define DEFAULT_PIN_I2C_SCL              -1                // Undefined
+#endif
+#endif
+#ifndef DEFAULT_PIN_I2C2_SCL
+#define DEFAULT_PIN_I2C2_SCL             -1                // Undefined
+#endif
+#ifndef DEFAULT_PIN_I2C3_SCL
+#define DEFAULT_PIN_I2C3_SCL             -1                // Undefined
 #endif
 #ifndef DEFAULT_I2C_CLOCK_SPEED
 #define DEFAULT_I2C_CLOCK_SPEED          400000            // Use 100 kHz if working with old I2C chips
@@ -184,8 +348,8 @@
 #ifndef DEFAULT_I2C_CLOCK_SPEED_SLOW
 #define DEFAULT_I2C_CLOCK_SPEED_SLOW      100000            // Use 100 kHz for old/slow I2C chips
 #endif
-#ifndef USE_I2C_DEVICE_SCAN
-#define USE_I2C_DEVICE_SCAN              true               // Show device name in I2C scan
+#ifndef FEATURE_I2C_DEVICE_SCAN
+#define FEATURE_I2C_DEVICE_SCAN           1                 // Show device name in I2C scan
 #endif
 
 #ifndef DEFAULT_PIN_STATUS_LED
@@ -199,29 +363,61 @@
 #define DEFAULT_PIN_RESET_BUTTON         (-1)
 #endif
 #ifndef DEFAULT_ETH_PHY_ADDR
+#ifdef ESP32P4
+#define DEFAULT_ETH_PHY_ADDR             ETH_PHY_ADDR
+#else
 #define DEFAULT_ETH_PHY_ADDR             0
 #endif
+#endif
 #ifndef DEFAULT_ETH_PHY_TYPE
-#define DEFAULT_ETH_PHY_TYPE             EthPhyType_t::LAN8710
+#if FEATURE_ETHERNET
+#ifdef ESP32P4
+#define DEFAULT_ETH_PHY_TYPE             ESPEasy::net::EthPhyType_t::TLK110
+#else
+#define DEFAULT_ETH_PHY_TYPE             ESPEasy::net::EthPhyType_t::notSet
+#endif
+#else
+#define DEFAULT_ETH_PHY_TYPE             0
+#endif
 #endif
 #ifndef DEFAULT_ETH_PIN_MDC
-#define DEFAULT_ETH_PIN_MDC              23
+#ifdef ESP32P4
+#define DEFAULT_ETH_PIN_MDC              ETH_PHY_MDC
+#else
+#define DEFAULT_ETH_PIN_MDC              -1
+#endif
 #endif
 #ifndef DEFAULT_ETH_PIN_MDIO
-#define DEFAULT_ETH_PIN_MDIO             18
+#ifdef ESP32P4
+#define DEFAULT_ETH_PIN_MDIO             ETH_PHY_MDIO
+#else
+#define DEFAULT_ETH_PIN_MDIO             -1
+#endif
 #endif
 #ifndef DEFAULT_ETH_PIN_POWER
+#ifdef ESP32P4
+#define DEFAULT_ETH_PIN_POWER            ETH_PHY_POWER
+#else
 #define DEFAULT_ETH_PIN_POWER            -1
 #endif
+#endif
 #ifndef DEFAULT_ETH_CLOCK_MODE
-#define DEFAULT_ETH_CLOCK_MODE           EthClockMode_t::Ext_crystal_osc
+# if CONFIG_ETH_USE_ESP32_EMAC && FEATURE_ETHERNET
+#ifdef ESP32P4
+#define DEFAULT_ETH_CLOCK_MODE           ESPEasy::net::EthClockMode_t::Ext_crystal
+#else
+#define DEFAULT_ETH_CLOCK_MODE           static_cast<ESPEasy::net::EthClockMode_t>(0)
+#endif
+#else
+#define DEFAULT_ETH_CLOCK_MODE           (0)
+#endif
 #endif
 #ifndef DEFAULT_NETWORK_MEDIUM
-  #ifdef HAS_ETHERNET
-    #define DEFAULT_NETWORK_MEDIUM       NetworkMedium_t::Ethernet
-  #else
-    #define DEFAULT_NETWORK_MEDIUM       NetworkMedium_t::WIFI
-  #endif
+#ifdef ESP32P4
+  #define DEFAULT_NETWORK_MEDIUM       ESPEasy::net::NetworkMedium_t::Ethernet
+#else
+  #define DEFAULT_NETWORK_MEDIUM       ESPEasy::net::NetworkMedium_t::WIFI
+#endif
 #endif
 #ifndef DEFAULT_JSON_BOOL_WITHOUT_QUOTES
 #define DEFAULT_JSON_BOOL_WITHOUT_QUOTES false
@@ -230,7 +426,13 @@
 #define DEFAULT_ENABLE_TIMING_STATS false
 #endif
 
-
+#ifndef DEFAULT_NETWORK_COLLECT_STATS_BITS
+#ifdef PLUGIN_BUILD_MAX_ESP32
+#define DEFAULT_NETWORK_COLLECT_STATS_BITS   0xFF
+#else
+#define DEFAULT_NETWORK_COLLECT_STATS_BITS   0
+#endif
+#endif
 
 // --- Advanced Settings ---------------------------------------------------------------------------------
 #if defined(ESP32)
@@ -241,7 +443,7 @@
 #endif
 
 #ifndef DEFAULT_USE_RULES
-#define DEFAULT_USE_RULES                       false   // (true|false) Enable Rules?
+#define DEFAULT_USE_RULES                       true   // (true|false) Enable Rules?
 #endif
 #ifndef DEFAULT_RULES_OLDENGINE
 #define DEFAULT_RULES_OLDENGINE                true
@@ -250,6 +452,15 @@
 #ifndef DEFAULT_MQTT_RETAIN
 #define DEFAULT_MQTT_RETAIN                     false   // (true|false) Retain MQTT messages?
 #endif
+
+#ifndef DEFAULT_CONTROLLER_DELETE_OLDEST
+#define DEFAULT_CONTROLLER_DELETE_OLDEST              false  // (true|false) to delete oldest message when queue is full
+#endif
+
+#ifndef DEFAULT_CONTROLLER_MUST_CHECK_REPLY 
+#define DEFAULT_CONTROLLER_MUST_CHECK_REPLY            false  // (true|false) Check Acknowledgment
+#endif
+
 #ifndef DEFAULT_MQTT_DELAY
 #define DEFAULT_MQTT_DELAY                      100    // Time in milliseconds to retain MQTT messages
 #endif
@@ -307,10 +518,85 @@
 #ifndef DEFAULT_SYSLOG_FACILITY
 #define DEFAULT_SYSLOG_FACILITY               	0 	    // kern
 #endif
+#ifndef DEFAULT_SYSLOG_PORT
+#define DEFAULT_SYSLOG_PORT                     0
+#endif
 
 #ifndef DEFAULT_SYNC_UDP_PORT
-#define DEFAULT_SYNC_UDP_PORT                   0                       // Used for ESPEasy p2p. (IANA registered port: 8266)
+#define DEFAULT_SYNC_UDP_PORT                   8266                    // Used for ESPEasy p2p. (IANA registered port: 8266)
 #endif
+
+
+// Factory Reset defaults
+#ifndef DEFAULT_FACTORY_RESET_KEEP_UNIT_NAME
+#define DEFAULT_FACTORY_RESET_KEEP_UNIT_NAME    true
+#endif
+#ifndef DEFAULT_FACTORY_RESET_KEEP_WIFI
+#define DEFAULT_FACTORY_RESET_KEEP_WIFI         true
+#endif
+#ifndef DEFAULT_FACTORY_RESET_KEEP_NETWORK
+#define DEFAULT_FACTORY_RESET_KEEP_NETWORK      true
+#endif
+#ifndef DEFAULT_FACTORY_RESET_KEEP_NTP_DST
+#define DEFAULT_FACTORY_RESET_KEEP_NTP_DST      true
+#endif
+#ifndef DEFAULT_FACTORY_RESET_KEEP_CONSOLE_LOG
+#define DEFAULT_FACTORY_RESET_KEEP_CONSOLE_LOG  true
+#endif
+
+
+
+// --- Defaults to be used for custom automatic provisioning builds ------------------------------------
+#if FEATURE_CUSTOM_PROVISIONING
+  #ifndef DEFAULT_FACTORY_DEFAULT_DEVICE_MODEL
+    #define DEFAULT_FACTORY_DEFAULT_DEVICE_MODEL  0 // DeviceModel_default
+  #endif
+  #ifndef DEFAULT_PROVISIONING_FETCH_RULES1
+    #define DEFAULT_PROVISIONING_FETCH_RULES1      false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_FETCH_RULES2
+    #define DEFAULT_PROVISIONING_FETCH_RULES2      false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_FETCH_RULES3
+    #define DEFAULT_PROVISIONING_FETCH_RULES3      false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_FETCH_RULES4
+    #define DEFAULT_PROVISIONING_FETCH_RULES4      false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_FETCH_NOTIFICATIONS
+    #define DEFAULT_PROVISIONING_FETCH_NOTIFICATIONS false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_FETCH_SECURITY
+    #define DEFAULT_PROVISIONING_FETCH_SECURITY     false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_FETCH_CONFIG
+    #define DEFAULT_PROVISIONING_FETCH_CONFIG       false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_FETCH_PROVISIONING
+    #define DEFAULT_PROVISIONING_FETCH_PROVISIONING false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_FETCH_FIRMWARE
+    #define DEFAULT_PROVISIONING_FETCH_FIRMWARE     false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_SAVE_URL
+    #define DEFAULT_PROVISIONING_SAVE_URL           false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_SAVE_CREDENTIALS
+    #define DEFAULT_PROVISIONING_SAVE_CREDENTIALS   false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_ALLOW_FETCH_COMMAND
+    #define DEFAULT_PROVISIONING_ALLOW_FETCH_COMMAND false
+  #endif
+  #ifndef DEFAULT_PROVISIONING_URL
+    #define DEFAULT_PROVISIONING_URL                ""
+  #endif
+  #ifndef DEFAULT_PROVISIONING_USER
+    #define DEFAULT_PROVISIONING_USER               ""
+  #endif
+  #ifndef DEFAULT_PROVISIONING_PASS
+    #define DEFAULT_PROVISIONING_PASS               ""
+  #endif
+#endif // if FEATURE_CUSTOM_PROVISIONING
 
 #ifndef BUILD_IN_WEBHEADER
 #define BUILD_IN_WEBHEADER                      false
@@ -327,16 +613,31 @@
 #endif
 
 
+#if FEATURE_STRING_VARIABLES
+# define TASK_VALUE_DERIVED_PREFIX_TEMPLATE       "_%s_%s-derived" // Includes a not-allowed varname character (-) to prevent undesired manipulation via LetStr
+# define TASK_VALUE_UOM_PREFIX_TEMPLATE           "_%s_%s-uom"
+# define TASK_VALUE_NAME_PREFIX_TEMPLATE          "_%s_%s-name"
+# define TASK_VALUE_VTYPE_PREFIX_TEMPLATE         "_%s_%s-vtype"
+# define TASK_VALUE_PRESENTATION_PREFIX_TEMPLATE  "_%s_%s-presentation"
+# define TASK_VALUE_PRESENTATION_PREFIX_STRING    "$" // Keep these string and char prefixes the same!
+# define TASK_VALUE_PRESENTATION_PREFIX_CHAR      '$'
+#endif // if FEATURE_STRING_VARIABLES
+
+
+// --- We define the default features to be enabled here
+#ifndef FEATURE_ESPEASY_P2P
+  #define FEATURE_ESPEASY_P2P   1
+#endif
+
 /*
 // --- Experimental Advanced Settings (NOT ACTIVES at this time) ------------------------------------
 
 #define DEFAULT_USE_GLOBAL_SYNC                 false           // (true|false)
 
-#define DEFAULT_IP_OCTET                        0                       //
 #define DEFAULT_WD_IC2_ADDRESS                  0                       //
 #define DEFAULT_USE_SSDP                        false           // (true|false)
 #define DEFAULT_CON_FAIL_THRES                  0                       //
 #define DEFAULT_I2C_CLOCK_LIMIT                 0                       //
 */
 
-#endif // ESPEASY_DEFAULTS_H_
+#endif // CUSTOMBUILD_ESPEASY_DEFAULTS_H_

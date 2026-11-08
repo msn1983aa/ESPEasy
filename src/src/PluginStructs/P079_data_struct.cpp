@@ -3,39 +3,35 @@
 #ifdef USES_P079
 
 
-
 WemosMotor::WemosMotor(uint8_t address, uint8_t motor, uint32_t freq)
-  : _address(address)
+  : _address(address), _freq(freq), _use_STBY_IO(false)
 {
-  _use_STBY_IO = false;
-
   if (motor == P079_MOTOR_A) {
     _motor = P079_MOTOR_A;
   }
   else {
     _motor = P079_MOTOR_B;
   }
-
-  setfreq(freq);
 }
 
 WemosMotor::WemosMotor(uint8_t address, uint8_t motor, uint32_t freq, uint8_t STBY_IO)
-  : _address(address)
+  : _address(address), _freq(freq), _use_STBY_IO(true), _STBY_IO(STBY_IO)
 {
-  _use_STBY_IO = true;
-  _STBY_IO     = STBY_IO;
-
   if (motor == P079_MOTOR_A) {
     _motor = P079_MOTOR_A;
   }
   else {
     _motor = P079_MOTOR_B;
   }
+}
 
-  setfreq(freq);
+void WemosMotor::init() {
+  setfreq(_freq);
 
-  pinMode(_STBY_IO, OUTPUT);
-  digitalWrite(_STBY_IO, LOW);
+  if (_use_STBY_IO) {
+    pinMode(_STBY_IO, OUTPUT);
+    digitalWrite(_STBY_IO, LOW);
+  }
 }
 
 /* setfreq() -- set PWM's frequency
@@ -107,11 +103,6 @@ void WemosMotor::setmotor(uint8_t dir, float pwm_val)
   Wire.endTransmission(); // stop transmitting
 
   delay(0);
-}
-
-void WemosMotor::setmotor(uint8_t dir)
-{
-  setmotor(dir, 100);
 }
 
 LOLIN_I2C_MOTOR::LOLIN_I2C_MOTOR(uint8_t address) : _address(address) {}
@@ -257,10 +248,10 @@ unsigned char LOLIN_I2C_MOTOR::sendData(unsigned char *data, unsigned char len)
     delay(50);
 
     if (data[0] == GET_SLAVE_STATUS) {
-      Wire.requestFrom((int)_address, 2);
+      Wire.requestFrom(static_cast<int>(_address), 2);
     }
     else {
-      Wire.requestFrom((int)_address, 1);
+      Wire.requestFrom(static_cast<int>(_address), 1);
     }
 
     i = 0;

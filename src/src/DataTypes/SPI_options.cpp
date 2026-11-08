@@ -1,0 +1,143 @@
+#include "../DataTypes/SPI_options.h"
+
+
+#ifdef ESP32
+
+# include "../Helpers/Hardware_device_info.h"
+
+// ESP32 VSPI:
+//  SCK  = 18
+//  MISO = 19
+//  MOSI = 23
+// ESP32 HSPI:
+//  SCK  = 14
+//  MISO = 12
+//  MOSI = 13
+
+
+// ESP32-S2 FSPI:
+//  SCK  = 36
+//  MISO = 37
+//  MOSI = 35
+
+// ESP32-S3 FSPI:
+//  SCK  = 36
+//  MISO = 37
+//  MOSI = 35
+
+// ESP32-C2 SPI:
+//  SCK  = 4
+//  MISO = 5
+//  MOSI = 6
+
+// ESP32-C3 SPI:
+//  SCK  = 4
+//  MISO = 5
+//  MOSI = 6
+
+
+/*
+   // From cores/esp32/esp32-hal-spi.h
+ #ifdef CONFIG_IDF_TARGET_ESP32
+ #define FSPI 1  //SPI 1 bus attached to the flash (can use the same data lines but different SS)
+ #define HSPI 2  //SPI 2 bus normally mapped to pins 12 - 15, but can be matrixed to any pins
+ #define VSPI 3  //SPI 3 bus normally attached to pins 5, 18, 19 and 23, but can be matrixed to any pins
+ #else
+ #define FSPI 0  // ESP32C2, C3, C5, C6, C61, H2, S2, S3, P4 - SPI 2 bus
+ #define HSPI 1  // ESP32S2, S3, P4 - SPI 3 bus
+ #endif
+ */
+
+# if CONFIG_IDF_TARGET_ESP32 // ESP32/PICO-D4
+#  define VSPI_FSPI_SHORT_STRING "VSPI (" STRINGIFY(VSPI_HOST) ")"
+#  define HSPI_SHORT_STRING      "HSPI (" STRINGIFY(HSPI_HOST) ")"
+# else // if CONFIG_IDF_TARGET_ESP32
+#  if SOC_SPI_PERIPH_NUM > 2
+#   define VSPI_FSPI_SHORT_STRING "FSPI (" STRINGIFY(VSPI_HOST) ")"
+#   define HSPI_SHORT_STRING               STRINGIFY(HSPI_HOST)
+#  else // if SOC_SPI_PERIPH_NUM > 2
+#   define VSPI_FSPI_SHORT_STRING "SPI" // STRINGIFY(VSPI_HOST)
+#  endif // if SOC_SPI_PERIPH_NUM > 2
+# endif // if CONFIG_IDF_TARGET_ESP32
+
+const __FlashStringHelper* getSPI_optionToString(SPI_Options_e option) {
+  switch (option)
+  {
+    case SPI_Options_e::None:
+      return F("Disabled");
+    case SPI_Options_e::Vspi_Fspi:
+      return F(
+        VSPI_FSPI_SHORT_STRING
+        ": CLK=" STRINGIFY(VSPI_FSPI_SCK)
+        ", MISO=" STRINGIFY(VSPI_FSPI_MISO)
+        ", MOSI=" STRINGIFY(VSPI_FSPI_MOSI));
+# ifdef ESP32_CLASSIC
+    case SPI_Options_e::Hspi:
+      return F(
+        HSPI_SHORT_STRING
+        ": CLK=" STRINGIFY(HSPI_SCLK)
+        ", MISO=" STRINGIFY(HSPI_MISO)
+        ", MOSI=" STRINGIFY(HSPI_MOSI));
+
+
+# endif // ifdef ESP32_CLASSIC
+    case SPI_Options_e::UserDefined_VSPI:
+      return F("User-defined " VSPI_FSPI_SHORT_STRING);
+# if SOC_SPI_PERIPH_NUM > 2
+    case SPI_Options_e::UserDefined_HSPI:
+      return F("User-defined " HSPI_SHORT_STRING);
+# endif // if SOC_SPI_PERIPH_NUM > 2
+  }
+  return F("Unknown");
+}
+
+const __FlashStringHelper* get_vspi_fspi_str() { return F(VSPI_FSPI_SHORT_STRING); }
+
+const String               getSPI_optionToShortString(SPI_Options_e option, uint8_t spi_bus) {
+# ifdef ESP32
+  String res;
+
+  switch (option)
+  {
+    case SPI_Options_e::None:
+      return F("Disabled");
+    case SPI_Options_e::Vspi_Fspi:
+      res = F(VSPI_FSPI_SHORT_STRING);
+      break;
+#  ifdef ESP32_CLASSIC
+    case SPI_Options_e::Hspi:
+      res = F("HSPI");
+      break;
+#  endif // ifdef ESP32_CLASSIC
+    case SPI_Options_e::UserDefined_VSPI:
+      res = F("User-defined " VSPI_FSPI_SHORT_STRING);
+      break;
+#  if SOC_SPI_PERIPH_NUM > 2
+    case SPI_Options_e::UserDefined_HSPI:
+      res = F("User-defined " HSPI_SHORT_STRING);
+      break;
+#  endif // if SOC_SPI_PERIPH_NUM > 2
+  }
+
+  if (!res.isEmpty()) {
+    if (getSPIBusCount() > 1) {
+      return concat(res + F(" bus "), spi_bus);
+    }
+    return res;
+  }
+# else // ifdef ESP32
+
+  switch (option)
+  {
+    case SPI_Options_e::None:
+      return F("Disabled");
+    case SPI_Options_e::Vspi_Fspi:
+      return F(VSPI_FSPI_SHORT_STRING);
+    case SPI_Options_e::UserDefined_VSPI:
+      return F("User-defined SPI");
+  }
+# endif // ifdef ESP32
+  return F("Unknown");
+}
+
+#endif // ifdef ESP32

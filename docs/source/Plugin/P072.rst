@@ -13,7 +13,9 @@ Type: |P072_type|
 
 Name: |P072_name|
 
-Status: |P072_status|
+Status ESP32: |P072_status|
+
+Status ESP8266: |P072_status_lb|
 
 GitHub: |P072_github|_
 
@@ -35,6 +37,23 @@ Supported hardware
 .. ~~~~~~
 
 .. .. include:: P072_events.repl
+
+Reading errors
+--------------
+
+If selecting a sensor register fails, or the sensor returns fewer than two bytes
+for temperature or humidity, both values are set to ``nan``. The failed reading
+is not sent to controllers such as MQTT. The next scheduled reading retries the
+sensor.
+
+Datasheets
+----------
+
+- `HDC1000 <https://www.ti.com/lit/ds/symlink/hdc1000.pdf>`_
+- `HDC1008 <https://www.ti.com/lit/ds/symlink/hdc1008.pdf>`_
+- `HDC1010 <https://www.ti.com/lit/ds/symlink/hdc1010.pdf>`_
+- `HDC1050 <https://www.ti.com/lit/ds/symlink/hdc1050.pdf>`_
+- `HDC1080 <https://www.ti.com/lit/ds/symlink/hdc1080.pdf>`_
 
 Change log
 ----------

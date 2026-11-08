@@ -10,14 +10,14 @@
 // #define DLbus_DEBUG
 
 // Flags for pulse width (bit 0 is the content!)
-#define DLbus_FlagSingleWidth                 0x02
-#define DLbus_FlagDoubleWidth                 0x04
-#define DLbus_FlagShorterThanSingleWidth      0x10
-#define DLbus_FlagBetweenDoubleSingleWidth    0x20
-#define DLbus_FlagLongerThanDoubleWidth       0x40
-#define DLbus_FlagLongerThanTwiceDoubleWidth  0x80
-#define DLbus_FlagsWrongTiming                (DLbus_FlagLongerThanTwiceDoubleWidth | DLbus_FlagLongerThanDoubleWidth | \
-                                               DLbus_FlagBetweenDoubleSingleWidth | DLbus_FlagShorterThanSingleWidth)
+# define DLbus_FlagSingleWidth                 0x02
+# define DLbus_FlagDoubleWidth                 0x04
+# define DLbus_FlagShorterThanSingleWidth      0x10
+# define DLbus_FlagBetweenDoubleSingleWidth    0x20
+# define DLbus_FlagLongerThanDoubleWidth       0x40
+# define DLbus_FlagLongerThanTwiceDoubleWidth  0x80
+# define DLbus_FlagsWrongTiming                (DLbus_FlagLongerThanTwiceDoubleWidth | DLbus_FlagLongerThanDoubleWidth | \
+                                                DLbus_FlagBetweenDoubleSingleWidth | DLbus_FlagShorterThanSingleWidth)
 
 // Helper for ISR call
 DLBus *DLBus::__instance                         = nullptr;
@@ -29,7 +29,9 @@ DLBus::DLBus()
   {
     __instance             = this;
     ISR_PtrChangeBitStream = DLbus_ChangeBitStream;
-    addToLog(LOG_LEVEL_INFO, F("Class DLBus created"));
+# ifndef P092_LIMIT_BUILD_SIZE
+    addLog(LOG_LEVEL_INFO, F("Class DLBus created"));
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   }
 }
 
@@ -39,42 +41,47 @@ DLBus::~DLBus()
   {
     __instance             = nullptr;
     ISR_PtrChangeBitStream = nullptr;
-    addToLog(LOG_LEVEL_INFO, F("Class DLBus destroyed"));
+# ifndef P092_LIMIT_BUILD_SIZE
+    addLog(LOG_LEVEL_INFO, F("Class DLBus destroyed"));
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   }
 }
 
+# ifndef P092_LIMIT_BUILD_SIZE
 void DLBus::AddToInfoLog(const String& string)
 {
   if ((IsLogLevelInfo) && (LogLevelInfo != 0xff)) {
-    addToLog(LogLevelInfo, string);
+    addLog(LogLevelInfo, string);
   }
 }
+
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
 void DLBus::AddToErrorLog(const String& string)
 {
   if (LogLevelError != 0xff) {
-    addToLog(LogLevelError, string);
+    addLog(LogLevelError, string);
   }
 }
 
 void DLBus::attachDLBusInterrupt(void)
 {
   ISR_Receiving = false;
-  IsISRset = true;
-  IsNoData = false;
+  IsISRset      = true;
+  IsNoData      = false;
   attachInterrupt(digitalPinToInterrupt(ISR_DLB_Pin), ISR, CHANGE);
 }
 
 void DLBus::StartReceiving(void)
 {
-  noInterrupts(); // make sure we don't get interrupted before we are ready
+  ISR_noInterrupts(); // make sure we don't get interrupted before we are ready
   ISR_PulseCount      = 0;
   ISR_Receiving       = (ISR_PtrChangeBitStream != nullptr);
   ISR_AllBitsReceived = false;
-  interrupts(); // interrupts allowed now, next instruction WILL be executed
+  ISR_interrupts(); // interrupts allowed now, next instruction WILL be executed
 }
 
-void ICACHE_RAM_ATTR DLBus::ISR(void)
+void IRAM_ATTR DLBus::ISR(void)
 {
   if (__instance)
   {
@@ -82,17 +89,17 @@ void ICACHE_RAM_ATTR DLBus::ISR(void)
   }
 }
 
-void ICACHE_RAM_ATTR DLBus::ISR_PinChanged(void)
+void IRAM_ATTR DLBus::ISR_PinChanged(void)
 {
-//  long TimeDiff = usecPassedSince(ISR_TimeLastBitChange); // time difference to previous pulse in Âµs
-  uint32_t _now = micros();
-  int32_t TimeDiff = (int32_t)(_now - ISR_TimeLastBitChange);
+  //  int32_t TimeDiff = usecPassedSince(ISR_TimeLastBitChange); // time difference to previous pulse in Âµs
+  uint32_t _now     = micros();
+  int32_t  TimeDiff = (int32_t)(_now - ISR_TimeLastBitChange);
 
-//  ISR_TimeLastBitChange = micros();                           // save last pin change time
-  ISR_TimeLastBitChange = _now;                           // save last pin change time
+  //  ISR_TimeLastBitChange = micros();                           // save last pin change time
+  ISR_TimeLastBitChange = _now;             // save last pin change time
 
   if (ISR_Receiving) {
-    uint8_t val = digitalRead(ISR_DLB_Pin);               // read state
+    uint8_t val = digitalRead(ISR_DLB_Pin); // read state
 
     // check pulse width
     if (TimeDiff >= 2 * ISR_MinDoublePulseWidth) {
@@ -140,43 +147,43 @@ boolean DLBus::CheckTimings(void) {
   uint8_t WrongTimeCnt = 0;
   int     i;
 
-#ifdef DLbus_DEBUG
+# ifdef DLbus_DEBUG
   uint16_t WrongTimingArray[5][6];
-#endif // DLbus_DEBUG
+# endif // DLbus_DEBUG
 
   //  AddToInfoLog(F("Receive stopped."));
 
   ISR_PulseCount = 0;
 
-  for (i = 0; i <= ISR_PulseNumber; i++) {
+  for (i = 0; i <= ISR_PulseNumber; ++i) {
     // store DLbus_ChangeBitStream into ByteStream
     rawval = *(ISR_PtrChangeBitStream + i);
 
     if (rawval & DLbus_FlagsWrongTiming) {
       // wrong DLbus_time_diff
       if (ISR_PulseCount > 0) {
-#ifdef DLbus_DEBUG
+# ifdef DLbus_DEBUG
         WrongTimingArray[WrongTimeCnt][0] = i;
         WrongTimingArray[WrongTimeCnt][1] = ISR_PulseCount;
         WrongTimingArray[WrongTimeCnt][2] = BitNumber;
         WrongTimingArray[WrongTimeCnt][3] = rawval;
-#endif // DLbus_DEBUG
+# endif // DLbus_DEBUG
 
         if ((rawval == DLbus_FlagLongerThanTwiceDoubleWidth) && (*(ISR_PtrChangeBitStream + i - 1) == (DLbus_FlagDoubleWidth | 0x01))) {
           // Add two additional short pulses (low and high), previous bit is High and contains DLbus_FlagDoubleWidth
           ProcessBit(0);
           ProcessBit(1);
-#ifdef DLbus_DEBUG
+# ifdef DLbus_DEBUG
           WrongTimingArray[WrongTimeCnt][4] = DLbus_FlagSingleWidth;
           WrongTimingArray[WrongTimeCnt][5] = DLbus_FlagSingleWidth + 1;
-#endif // DLbus_DEBUG
+# endif // DLbus_DEBUG
         }
-#ifdef DLbus_DEBUG
+# ifdef DLbus_DEBUG
         else {
           WrongTimingArray[WrongTimeCnt][4] = 0xff;
           WrongTimingArray[WrongTimeCnt][5] = 0xff;
         }
-#endif // DLbus_DEBUG
+# endif // DLbus_DEBUG
         WrongTimeCnt++;
 
         if (WrongTimeCnt >= 5) {
@@ -201,14 +208,14 @@ boolean DLBus::CheckTimings(void) {
 
   //  AddToInfoLog(F("DLbus_ChangeBitStream copied."));
 
-#ifdef DLbus_DEBUG
+# ifdef DLbus_DEBUG
 
   if (WrongTimeCnt > 0) {
     if (IsLogLevelInfo) {
       String log = F("Wrong Timings: ");
       AddToInfoLog(log);
 
-      for (i = 0; i < WrongTimeCnt; i++) {
+      for (i = 0; i < WrongTimeCnt; ++i) {
         log  = i + 1;
         log += F(": PulseCount:");
         log += WrongTimingArray[i][1];
@@ -234,7 +241,7 @@ boolean DLBus::CheckTimings(void) {
       }
     }
   }
-#endif // DLbus_DEBUG
+# endif // DLbus_DEBUG
   return true;
 }
 
@@ -258,9 +265,10 @@ void DLBus::ProcessBit(uint8_t b) {
 boolean DLBus::Processing(void) {
   boolean inverted = false;
   int16_t StartBit; // first bit of data frame (-1 not recognized)
-  String  log;
 
+# ifndef P092_LIMIT_BUILD_SIZE
   AddToInfoLog(F("Processing..."));
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   StartBit = Analyze(); // find the data frame's beginning
 
   // inverted signal?
@@ -283,26 +291,28 @@ boolean DLBus::Processing(void) {
       // no complete data frame available (difference between start_bit and received bits is < RequiredBitStreamLength)
       AddToErrorLog(F("Start bit too close to end of stream!"));
 
+# ifndef P092_LIMIT_BUILD_SIZE
+
       if (IsLogLevelInfo) {
-        log  = F("# Required bits: ");
-        log += RequiredBitStreamLength;
-        log += F(" StartBit: ");
-        log += StartBit;
-        log += F(" / EndBit: ");
-        log += BitNumber;
-        AddToInfoLog(log);
+        AddToInfoLog(strformat(
+                       F("# Required bits: %d StartBit: %d / EndBit: %d"),
+                       RequiredBitStreamLength,
+                       StartBit,
+                       BitNumber));
       }
+# endif // ifndef P092_LIMIT_BUILD_SIZE
       return false;
     }
   }
 
+# ifndef P092_LIMIT_BUILD_SIZE
+
   if (IsLogLevelInfo) {
-    log  = F("StartBit: ");
-    log += StartBit;
-    log += F(" / EndBit: ");
-    log += BitNumber;
-    AddToInfoLog(log);
+    AddToInfoLog(strformat(
+                   F("StartBit: %d / EndBit: %d"),
+                   StartBit, BitNumber));
   }
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   Trim(StartBit);      // remove start and stop bits
 
   if (CheckDevice()) { // check connected device
@@ -318,7 +328,7 @@ int DLBus::Analyze(void) {
   uint8_t sync = 0;
 
   // find SYNC (16 * sequential 1)
-  for (int i = 0; i < BitNumber; i++) {
+  for (int i = 0; i < BitNumber; ++i) {
     if (ReadBit(i)) {
       sync++;
     }
@@ -340,9 +350,11 @@ int DLBus::Analyze(void) {
 }
 
 void DLBus::Invert(void) {
+# ifndef P092_LIMIT_BUILD_SIZE
   AddToInfoLog(F("Invert bit stream..."));
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
-  for (int i = 0; i < BitNumber; i++) {
+  for (int i = 0; i < BitNumber; ++i) {
     WriteBit(i, ReadBit(i) ? 0 : 1); // invert every bit
   }
 }
@@ -367,7 +379,7 @@ void DLBus::WriteBit(int pos, uint8_t set) {
 }
 
 void DLBus::Trim(int start_bit) {
-  for (int i = start_bit, bit = 0; i < BitNumber; i++) {
+  for (int i = start_bit, bit = 0; i < BitNumber; ++i) {
     int offset = i - start_bit;
 
     // ignore start and stop bits:
@@ -388,21 +400,22 @@ boolean DLBus::CheckDevice(void) {
     }
   }
 
+# ifndef P092_LIMIT_BUILD_SIZE
+
   if (IsLogLevelInfo) {
-    String log = F("# Received DeviceByte(s): 0x");
-    log += String(ByteStream[0], HEX);
+    String log = strformat(F("# Received DeviceByte(s): 0x%02x"), ByteStream[0]);
 
     if (DeviceBytes[1] != 0) {
-      log += String(ByteStream[1], HEX);
+      log += strformat(F("%02x"), ByteStream[1]);
     }
-    log += F(" Requested: 0x");
-    log += String(DeviceBytes[0], HEX);
+    log += strformat(F(" Requested: 0x%02x"), DeviceBytes[0]);
 
     if (DeviceBytes[1] != 0) {
-      log += String(DeviceBytes[1], HEX);
+      log += strformat(F("%02x"), DeviceBytes[1]);
     }
     AddToInfoLog(log);
   }
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   return false;
 }
 
@@ -411,10 +424,12 @@ boolean DLBus::CheckCRC(uint8_t IdxCRC) {
   if (IdxCRC == 0) {
     return true;
   }
+# ifndef P092_LIMIT_BUILD_SIZE
   AddToInfoLog(F("Check CRC..."));
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   uint16_t dataSum = 0;
 
-  for (int i = 0; i < IdxCRC; i++) {
+  for (int i = 0; i < IdxCRC; ++i) {
     dataSum = dataSum + ByteStream[i];
   }
   dataSum = dataSum & 0xff;
@@ -424,13 +439,15 @@ boolean DLBus::CheckCRC(uint8_t IdxCRC) {
   }
   AddToErrorLog(F("Check CRC failed!"));
 
+# ifndef P092_LIMIT_BUILD_SIZE
+
   if (IsLogLevelInfo) {
-    String log = F("# Calculated CRC: 0x");
-    log += String(dataSum, HEX);
-    log += F(" Received: 0x");
-    log += String(ByteStream[IdxCRC], HEX);
-    AddToInfoLog(log);
+    AddToInfoLog(strformat(
+                   F("# Calculated CRC: 0x%x Received: 0x%x"),
+                   dataSum,
+                   ByteStream[IdxCRC]));
   }
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   return false;
 }
 
@@ -449,8 +466,6 @@ boolean DLBus::CheckCRC(uint8_t IdxCRC) {
 # define DLbus_RSM_STANDBY         0b11
 
 
-P092_data_struct::P092_data_struct() {}
-
 P092_data_struct::~P092_data_struct() {
   if (DLbus_Data != nullptr) {
     if (DLbus_Data->ISR_DLB_Pin != 0xFF) {
@@ -459,7 +474,6 @@ P092_data_struct::~P092_data_struct() {
     delete DLbus_Data;
     DLbus_Data = nullptr;
   }
-
 }
 
 bool P092_data_struct::init(int8_t pin1, int P092DeviceIndex, eP092pinmode P092pinmode) {
@@ -473,29 +487,27 @@ bool P092_data_struct::init(int8_t pin1, int P092DeviceIndex, eP092pinmode P092p
   DLbus_Data->IsLogLevelInfo = loglevelActiveFor(LOG_LEVEL_INFO);
   DLbus_Data->ISR_DLB_Pin    = pin1;
 
-  //interrupt is detached in PLUGIN_WEBFORM_SAVE and attached in PLUGIN_ONCE_A_SECOND
-  //to ensure that new interrupt is attached after new pin is configured, setting
-  //IsISRset to false is done here.
-  DLbus_Data->IsISRset       = false;
+  // interrupt is detached in PLUGIN_WEBFORM_SAVE and attached in PLUGIN_ONCE_A_SECOND
+  // to ensure that new interrupt is attached after new pin is configured, setting
+  // IsISRset to false is done here.
+  DLbus_Data->IsISRset = false;
 
   switch (P092pinmode) {
     case eP092pinmode::ePPM_InputPullUp:
+# ifndef P092_LIMIT_BUILD_SIZE
       addLog(LOG_LEVEL_INFO, F("P092_init: Set input pin with pullup"));
+# endif // ifndef P092_LIMIT_BUILD_SIZE
       pinMode(pin1, INPUT_PULLUP);
-    break;
-#ifdef INPUT_PULLDOWN
-    case eP092pinmode::ePPM_InputPullDown:
-      addLog(LOG_LEVEL_INFO, F("P092_init: Set input pin with pulldown"));
-      pinMode(pin1, INPUT_PULLDOWN);
-    break;
-#endif
+      break;
     default:
+# ifndef P092_LIMIT_BUILD_SIZE
       addLog(LOG_LEVEL_INFO, F("P092_init: Set input pin"));
+# endif // ifndef P092_LIMIT_BUILD_SIZE
       pinMode(pin1, INPUT);
   }
 
-// on a CHANGE on the data pin P092_Pin_changed is called
-//DLbus_Data->attachDLBusInterrupt();
+  // on a CHANGE on the data pin P092_Pin_changed is called
+  // DLbus_Data->attachDLBusInterrupt();
   return true;
 }
 
@@ -528,14 +540,21 @@ void P092_data_struct::Plugin_092_SetIndices(int P092DeviceIndex) {
   P092_DataSettings.IdxCRC         = 30;
 
   switch (P092DeviceIndex) {
-    case 31: // UVR31
-      P092_DataSettings.DataBytes                 = 8;
+    case 31:                       // UVR31
+    case 42:                       // UVR42
+
+      if (P092DeviceIndex == 31) { // UVR31
+        P092_DataSettings.DataBytes   = 8;
+        P092_DataSettings.DeviceByte0 = 0x30;
+      } else {                     // UVR42
+        P092_DataSettings.DataBytes   = 10;
+        P092_DataSettings.DeviceByte0 = 0x10;
+      }
       P092_DataSettings.DLbus_MinPulseWidth       = P092_min_width_50;
       P092_DataSettings.DLbus_MaxPulseWidth       = P092_max_width_50;
       P092_DataSettings.DLbus_MinDoublePulseWidth = P092_double_min_width_50;
       P092_DataSettings.DLbus_MaxDoublePulseWidth = P092_double_max_width_50;
 
-      P092_DataSettings.DeviceByte0    = 0x30;
       P092_DataSettings.DeviceByte1    = 0;
       iDeviceBytes                     = 1;
       P092_DataSettings.MaxExtSensors  = 0;
@@ -630,11 +649,12 @@ void P092_data_struct::Plugin_092_StartReceiving(taskIndex_t taskindex) {
   DLbus_Data->StartReceiving();
   uint32_t start = millis();
 
+# ifndef P092_LIMIT_BUILD_SIZE
+
   if (loglevelActiveFor(LOG_LEVEL_INFO)) {
-    String log = F("P092_receiving ... TaskIndex:");
-    log += taskindex;
-    addLog(LOG_LEVEL_INFO, log);
+    addLogMove(LOG_LEVEL_INFO, concat(F("P092_receiving ... TaskIndex:"), taskindex));
   }
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
   while ((timePassedSince(start) < 100) && (DLbus_Data->ISR_PulseCount == 0)) {
     // wait for first pulse received (timeout 100ms)
@@ -644,7 +664,7 @@ void P092_data_struct::Plugin_092_StartReceiving(taskIndex_t taskindex) {
   if (DLbus_Data->ISR_PulseCount == 0) {
     // nothing received
     DLbus_Data->ISR_Receiving = false;
-    DLbus_Data->IsNoData = true;  // stop receiving until next PLUGIN_092_READ
+    DLbus_Data->IsNoData      = true; // stop receiving until next PLUGIN_092_READ
     addLog(LOG_LEVEL_ERROR, F("## StartReceiving: Error: Nothing received! No DL bus connected!"));
   }
 }
@@ -653,13 +673,16 @@ void P092_data_struct::Plugin_092_StartReceiving(taskIndex_t taskindex) {
    DLBus get data
 \****************/
 boolean P092_data_struct::P092_GetData(int OptionIdx, int CurIdx, sP092_ReadData *ReadData) {
-  String  log;
+# ifndef P092_LIMIT_BUILD_SIZE
+  String log;
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   boolean result = false;
 
   switch (OptionIdx) {
     case 1: // F("Sensor")
-      log  = F("Get Sensor");
-      log += CurIdx;
+# ifndef P092_LIMIT_BUILD_SIZE
+      log = F("Get Sensor");
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
       if (CurIdx > P092_DataSettings.MaxSensors) {
         result = false;
@@ -669,8 +692,9 @@ boolean P092_data_struct::P092_GetData(int OptionIdx, int CurIdx, sP092_ReadData
       result        = P092_fetch_sensor(CurIdx, ReadData);
       break;
     case 2: // F("Sensor")
-      log  = F("Get ExtSensor");
-      log += CurIdx;
+# ifndef P092_LIMIT_BUILD_SIZE
+      log = F("Get ExtSensor");
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
       if (CurIdx > P092_DataSettings.MaxExtSensors) {
         result = false;
@@ -680,8 +704,9 @@ boolean P092_data_struct::P092_GetData(int OptionIdx, int CurIdx, sP092_ReadData
       result        = P092_fetch_sensor(CurIdx, ReadData);
       break;
     case 3: // F("Digital output")
-      log  = F("Get DigitalOutput");
-      log += CurIdx;
+# ifndef P092_LIMIT_BUILD_SIZE
+      log = F("Get DigitalOutput");
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
       if (CurIdx > (8 * P092_DataSettings.OutputBytes)) {
         result = false;
@@ -690,8 +715,9 @@ boolean P092_data_struct::P092_GetData(int OptionIdx, int CurIdx, sP092_ReadData
       result = P092_fetch_output(CurIdx, ReadData);
       break;
     case 4: // F("Speed step")
-      log  = F("Get SpeedStep");
-      log += CurIdx;
+# ifndef P092_LIMIT_BUILD_SIZE
+      log = F("Get SpeedStep");
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
       if (CurIdx > P092_DataSettings.SpeedBytes) {
         result = false;
@@ -700,8 +726,9 @@ boolean P092_data_struct::P092_GetData(int OptionIdx, int CurIdx, sP092_ReadData
       result = P092_fetch_speed(CurIdx, ReadData);
       break;
     case 5: // F("Analog output")
-      log  = F("Get AnalogOutput");
-      log += CurIdx;
+# ifndef P092_LIMIT_BUILD_SIZE
+      log = F("Get AnalogOutput");
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
       if (CurIdx > P092_DataSettings.AnalogBytes) {
         result = false;
@@ -710,8 +737,9 @@ boolean P092_data_struct::P092_GetData(int OptionIdx, int CurIdx, sP092_ReadData
       result = P092_fetch_analog(CurIdx, ReadData);
       break;
     case 6: // F("Heat power (kW)")
-      log  = F("Get HeatPower");
-      log += CurIdx;
+# ifndef P092_LIMIT_BUILD_SIZE
+      log = F("Get HeatPower");
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
       if (CurIdx > P092_DataSettings.MaxHeatMeters) {
         result = false;
@@ -720,8 +748,9 @@ boolean P092_data_struct::P092_GetData(int OptionIdx, int CurIdx, sP092_ReadData
       result = P092_fetch_heatpower(CurIdx, ReadData);
       break;
     case 7: // F("Heat meter (MWh)"
-      log  = F("Get HeatMeter");
-      log += CurIdx;
+# ifndef P092_LIMIT_BUILD_SIZE
+      log = F("Get HeatMeter");
+# endif // ifndef P092_LIMIT_BUILD_SIZE
 
       if (CurIdx > P092_DataSettings.MaxHeatMeters) {
         result = false;
@@ -731,8 +760,10 @@ boolean P092_data_struct::P092_GetData(int OptionIdx, int CurIdx, sP092_ReadData
       break;
   }
 
+# ifndef P092_LIMIT_BUILD_SIZE
+
   if (loglevelActiveFor(LOG_LEVEL_INFO)) {
-    log += F(": ");
+    log += strformat(F("%d: "), CurIdx);
 
     if (result) {
       log += String(ReadData->value, 1);
@@ -740,16 +771,18 @@ boolean P092_data_struct::P092_GetData(int OptionIdx, int CurIdx, sP092_ReadData
     else {
       log += F("nan");
     }
-    addLog(LOG_LEVEL_INFO, log);
+    addLogMove(LOG_LEVEL_INFO, log);
   }
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   return result;
 }
 
 boolean P092_data_struct::P092_fetch_sensor(int number, sP092_ReadData *ReadData) {
-  float value;
+  float value = 0.0f;
 
   ReadData->mode = -1;
   number         = ReadData->Idx + (number - 1) * 2;
+  // TODO TD-er: Use getUint16FromLittleEndianByteStream
   int32_t sensorvalue = (DLbus_Data->ByteStream[number + 1] << 8) | DLbus_Data->ByteStream[number];
 
   if (sensorvalue == 0) {
@@ -766,7 +799,7 @@ boolean P092_data_struct::P092_fetch_sensor(int number, sP092_ReadData *ReadData
         value = false;
         break;
       case DLbus_Sensor_TEMP:
-        value = sensorvalue * 0.1;
+        value = static_cast<float>(sensorvalue) * 0.1f;
         break;
       case DLbus_Sensor_RAYS:
         value = sensorvalue;
@@ -776,7 +809,7 @@ boolean P092_data_struct::P092_fetch_sensor(int number, sP092_ReadData *ReadData
         break;
       case DLbus_Sensor_ROOM:
         ReadData->mode = (sensorvalue & 0x600) >> 9;
-        value          = (sensorvalue & 0x1ff) * 0.1;
+        value          = static_cast<float>(sensorvalue & 0x1ff) * 0.1f;
         break;
       default:
         return false;
@@ -791,7 +824,7 @@ boolean P092_data_struct::P092_fetch_sensor(int number, sP092_ReadData *ReadData
         value = true;
         break;
       case DLbus_Sensor_TEMP:
-        value = (sensorvalue - 0x10000) * 0.1;
+        value = static_cast<float>(sensorvalue - 0x10000) * 0.1f;
         break;
       case DLbus_Sensor_RAYS:
         value = sensorvalue - 0x10000;
@@ -801,7 +834,7 @@ boolean P092_data_struct::P092_fetch_sensor(int number, sP092_ReadData *ReadData
         break;
       case DLbus_Sensor_ROOM:
         ReadData->mode = (sensorvalue & 0x600) >> 9;
-        value          = ((sensorvalue & 0x1ff) - 0x10000) * 0.1;
+        value          = static_cast<float>((sensorvalue & 0x1ff) - 0x10000) * 0.1f;
         break;
       default:
         return false;
@@ -815,6 +848,7 @@ boolean P092_data_struct::P092_fetch_output(int number, sP092_ReadData *ReadData
   int32_t outputs;
 
   if (P092_DataSettings.OutputBytes > 1) {
+    // TODO TD-er: Use getUint16FromLittleEndianByteStream
     outputs = (DLbus_Data->ByteStream[P092_DataSettings.IdxOutput + 1] << 8) | DLbus_Data->ByteStream[P092_DataSettings.IdxOutput];
   }
   else {
@@ -920,20 +954,20 @@ boolean P092_data_struct::P092_fetch_heatpower(int number, sP092_ReadData *ReadD
     int low = (b1 * 10) / 0x100;
 
     if (!(b4 & 0x80)) { // sign positive
-      ReadData->value = (10 * high + low) / 100;
+      ReadData->value = static_cast<float>(10 * high + low) / 100.0f;
     }
     else {              // sign negative
-      ReadData->value = (10 * (high - 0x10000) - low) / 100;
+      ReadData->value = static_cast<float>(10 * (high - 0x10000) - low) / 100.0f;
     }
   }
   else {
     high = (b2 << 8) | b1;
 
     if ((b2 & 0x80) == 0) { // sign positive
-      ReadData->value = high / 10;
+      ReadData->value = static_cast<float>(high) / 10.0f;
     }
     else {                  // sign negative
-      ReadData->value = (high - 0x10000) / 10;
+      ReadData->value = static_cast<float>(high - 0x10000) / 10.0f;
     }
   }
   return true;
@@ -949,6 +983,7 @@ boolean P092_data_struct::P092_fetch_heatmeter(int number, sP092_ReadData *ReadD
   if (HMindex.IndexIsValid == 0) {
     return false;
   }
+  // TODO TD-er: Use getUint16FromLittleEndianByteStream
   heat_meter     = (DLbus_Data->ByteStream[HMindex.kwh_index + 1] << 8) | DLbus_Data->ByteStream[HMindex.kwh_index];
   heat_meter_mwh = (heat_meter * 0.1f) / 1000.0f; // in MWh
 
@@ -959,6 +994,7 @@ boolean P092_data_struct::P092_fetch_heatmeter(int number, sP092_ReadData *ReadD
   }
 
   // MWh
+  // TODO TD-er: Use getUint16FromLittleEndianByteStream
   heat_meter      = (DLbus_Data->ByteStream[HMindex.mwh_index + 1] << 8) | DLbus_Data->ByteStream[HMindex.mwh_index];
   ReadData->value = heat_meter_mwh + heat_meter;
   return true;

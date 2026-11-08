@@ -8,21 +8,30 @@
 
 # include <Adafruit_MPR121.h>
 
-#define P062_MaxTouchObjects 12 // Max. number of (separate) touch inputs
+# define P062_MaxTouchObjects 12 // Max. number of (separate) touch inputs
 
 struct P062_data_struct : public PluginTaskData_base {
 public:
 
   P062_data_struct();
+  virtual ~P062_data_struct();
+  
   bool init(taskIndex_t taskIndex,
             uint8_t     i2c_addr,
             bool        scancode,
-            bool        keepCalibrationData);
+            bool        keepCalibrationData,
+            uint8_t     sensitivity = MPR212_NORMAL_SENSITIVITY);
 
   bool readKey(uint16_t& key);
-  void setThresholds(uint8_t touch, uint8_t release);
-  void setThreshold(uint8_t t, uint8_t touch, uint8_t release);
-  bool getCalibrationData(uint8_t t, uint16_t *current, uint16_t *min, uint16_t *max);
+  void setThresholds(uint8_t touch,
+                     uint8_t release);
+  void setThreshold(uint8_t t,
+                    uint8_t touch,
+                    uint8_t release);
+  bool getCalibrationData(uint8_t   t,
+                          uint16_t *current,
+                          uint16_t *min,
+                          uint16_t *max);
   void clearCalibrationData();
   void loadTouchObjects(taskIndex_t taskIndex);
 
@@ -30,23 +39,23 @@ public:
    * Structs for StoredSettings
    */
   struct tP062_Sensitivity {
-    uint8_t touch = 0;
+    uint8_t touch   = 0;
     uint8_t release = 0;
   };
 
   struct tP062_StoredSettings_struct {
-    tP062_Sensitivity TouchObjects[P062_MaxTouchObjects];
+    tP062_Sensitivity TouchObjects[P062_MaxTouchObjects] = {};
   };
 
-  tP062_StoredSettings_struct StoredSettings;
+  tP062_StoredSettings_struct StoredSettings{};
 
   /**
    * Structs for Calbration values
    */
   struct tP062_CalibrationValue {
     uint16_t current = 0;
-    uint16_t min = 0;
-    uint16_t max = 0;
+    uint16_t min     = 0;
+    uint16_t max     = 0;
   };
 
   struct tP062_CalibrationData_struct {
@@ -56,13 +65,15 @@ public:
   tP062_CalibrationData_struct CalibrationData;
 
 private:
+
   void updateCalibration(uint8_t t);
 
-  Adafruit_MPR121 *keypad = nullptr;
-  uint16_t        keyLast = 0;
-  int8_t          _i2c_addr = -1;
-  bool            _use_scancode = false;
-  bool            _keepCalibrationData = false;
+  Adafruit_MPR121 *keypad               = nullptr;
+  uint16_t         keyLast              = 0;
+  int8_t           _i2c_addr            = -1;
+  bool             _use_scancode        = false;
+  bool             _keepCalibrationData = false;
+  uint8_t          _sensitivity = 0;
 };
 
 #endif // ifdef USES_P062

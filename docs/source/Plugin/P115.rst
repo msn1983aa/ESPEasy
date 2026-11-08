@@ -13,7 +13,9 @@ Type: |P115_type|
 
 Name: |P115_name|
 
-Status: |P115_status|
+Status ESP32: |P115_status|
+
+Status ESP8266: |P115_status_lb|
 
 GitHub: |P115_github|_
 
@@ -57,6 +59,8 @@ Device Settings
 
 **Send Event on Alert** : Send an event, to be used in rules, when the alert is set.  This can be cleared with ``max1704xclearalert``
 
+.. include:: DataAcquisition.repl
+
 Values
 ^^^^^^
 
@@ -81,4 +85,4 @@ Change log
 
 .. versionchanged:: 2.0
 
-  |added| 2021-05-08 Added to main repository as Plugin 115 Energy - Fuel Gauge MAX1704x [TESTING]
+  |added| 2021-05-08 Added to main repository as Plugin 115 Energy - Fuel Gauge MAX1704x

@@ -1,7 +1,8 @@
 #include "../Commands/Servo.h"
 
 #include "../Commands/Common.h"
-#include "../Commands/GPIO.h"
+#if FEATURE_SERVO
+
 #include "../DataStructs/EventStructCommandWrapper.h"
 #include "../DataStructs/PinMode.h"
 #include "../DataStructs/PortStatusStruct.h"
@@ -9,19 +10,19 @@
 #include "../ESPEasyCore/ESPEasyGPIO.h"
 #include "../ESPEasyCore/ESPEasy_Log.h"
 #include "../Globals/GlobalMapPortStatus.h"
-#include "../Helpers/Hardware.h"
+#include "../Helpers/Hardware_PWM.h"
 #include "../Helpers/PortStatus.h"
+#include "../Helpers/StringConverter.h"
 
 // Needed also here for PlatformIO's library finder as the .h file 
 // is in a directory which is excluded in the src_filter
-#ifdef USE_SERVO
 # include <Servo.h>
 ServoPinMap_t ServoPinMap;
-#endif // ifdef USE_SERVO
+#endif // if FEATURE_SERVO
 
 const __FlashStringHelper * Command_Servo(struct EventStruct *event, const char *Line)
 {
-#ifdef USE_SERVO
+  #if FEATURE_SERVO
 
   // GPIO number is stored inside event->Par2 instead of event->Par1 as in all the other commands
   // So needs to reload the tempPortStruct.
@@ -39,8 +40,7 @@ const __FlashStringHelper * Command_Servo(struct EventStruct *event, const char 
     // So the next command should be part of each command:
     tempStatus = globalMapPortStatus[key];
 
-    String log = F("Servo : GPIO ");
-    log += event->Par2;
+    String log = concat(F("Servo : GPIO "), event->Par2);
 
     // SPECIAL CASE TO ALLOW SERVO TO BE DETATTCHED AND SAVE POWER.
     if (event->Par3 >= 9000) {
@@ -59,9 +59,10 @@ const __FlashStringHelper * Command_Servo(struct EventStruct *event, const char 
       tempStatus.monitor = 0;
       tempStatus.command = 0;
       savePortStatus(key, tempStatus);
-      log += F(" Servo detached");
-      addLog(LOG_LEVEL_INFO, log);
-      return return_command_success();
+#ifndef BUILD_NO_DEBUG
+      addLog(LOG_LEVEL_INFO, concat(log, F(" Servo detached")));
+#endif
+      return return_command_success_flashstr();
 
     }
     # ifdef ESP32
@@ -87,10 +88,12 @@ const __FlashStringHelper * Command_Servo(struct EventStruct *event, const char 
     SendStatusOnlyIfNeeded(event, SEARCH_PIN_STATE, key, log, 0);
 
     // SendStatus(event, getPinStateJSON(SEARCH_PIN_STATE, PLUGIN_ID_001, event->Par2, log, 0));
-    return return_command_success();
+    return return_command_success_flashstr();
   }
-    #else // ifdef USE_SERVO
-  addLog(LOG_LEVEL_ERROR, F("USE_SERVO not included in build"));
-    #endif // USE_SERVO
-  return return_command_failed();
+  #else // if FEATURE_SERVO
+  #ifndef BUILD_MINIMAL_OTA
+  addLog(LOG_LEVEL_ERROR, F("SERVO : command not included in build"));
+  #endif
+  #endif // FEATURE_SERVO
+  return return_command_failed_flashstr();
 }

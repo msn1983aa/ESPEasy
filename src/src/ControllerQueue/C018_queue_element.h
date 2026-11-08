@@ -2,21 +2,23 @@
 #define CONTROLLERQUEUE_C018_QUEUE_ELEMENT_H
 
 #include "../../ESPEasy_common.h"
-#include "../CustomBuild/ESPEasyLimits.h"
-#include "../DataStructs/UnitMessageCount.h"
-#include "../Globals/CPlugins.h"
+
+#ifdef USES_C018
+
+# include "../ControllerQueue/Queue_element_base.h"
+# include "../CustomBuild/ESPEasyLimits.h"
+# include "../Globals/CPlugins.h"
 
 
 struct EventStruct;
-
-#ifdef USES_C018
+struct UnitMessageCount_t;
 
 /*********************************************************************************************\
 * C018_queue_element for queueing requests for C018: TTN/RN2483
 \*********************************************************************************************/
 
 
-class C018_queue_element {
+class C018_queue_element : public Queue_element_base {
 public:
 
   C018_queue_element() = default;
@@ -28,19 +30,22 @@ public:
   C018_queue_element(struct EventStruct *event,
                      uint8_t             sampleSetCount);
 
-  size_t getSize() const;
+  size_t                    getSize() const override;
 
-  bool isDuplicate(const C018_queue_element& other) const;
+  bool                      isDuplicate(const Queue_element_base& other) const override;
 
-  const UnitMessageCount_t* getUnitMessageCount() const { return nullptr; }
+  const UnitMessageCount_t* getUnitMessageCount() const override {
+    return nullptr;
+  }
+
+  UnitMessageCount_t* getUnitMessageCount() override {
+    return nullptr;
+  }
 
   String packed;
-  unsigned long _timestamp         = millis();
-  taskIndex_t TaskIndex            = INVALID_TASK_INDEX;
-  controllerIndex_t controller_idx = INVALID_CONTROLLER_INDEX;
 };
 
-#endif //USES_C018
+#endif // USES_C018
 
 
 #endif // CONTROLLERQUEUE_C018_QUEUE_ELEMENT_H

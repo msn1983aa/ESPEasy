@@ -1,7 +1,7 @@
-#ifndef DATASTRUCTS_PROTOCOLINDEX_H
-#define DATASTRUCTS_PROTOCOLINDEX_H
+#ifndef DATATYPES_PROTOCOLINDEX_H
+#define DATATYPES_PROTOCOLINDEX_H
 
-#include <Arduino.h>
+#include "../../ESPEasy_common.h"
 
 typedef uint8_t    protocolIndex_t;
 

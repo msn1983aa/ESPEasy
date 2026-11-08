@@ -3,8 +3,9 @@
 
 #include "../WebServer/common.h"
 
-#include "../Globals/Plugins.h"
+#include "../../ESPEasy/net/DataStructs/MAC_address.h"
 #include "../Helpers/StringGenerator_GPIO.h"
+#include "../DataTypes/TaskIndex.h"
 
 
 // ********************************************************************************
@@ -16,7 +17,7 @@ void addFormSeparator(int clspan);
 // Add a note as row start
 // ********************************************************************************
 void addFormNote(const __FlashStringHelper * text);
-void addFormNote(const String& text, const String& id = "");
+void addFormNote(const String& text, const String& id = EMPTY_STRING);
 
 // ********************************************************************************
 // Create Forms
@@ -29,48 +30,62 @@ void addFormNote(const String& text, const String& id = "");
 
 void addFormCheckBox_disabled(const String& label,
                               const String& id,
-                              boolean       checked
-                              #ifdef        ENABLE_TOOLTIPS
+                              bool       checked
+                              #if FEATURE_TOOLTIPS
                               ,
                               const String& tooltip = EMPTY_STRING
-                              #endif // ifdef ENABLE_TOOLTIPS
+                              #endif // if FEATURE_TOOLTIPS
                               );
 
 void addFormCheckBox(const String& label,
                      const String& id,
-                     boolean       checked,
+                     bool       checked,
                      bool          disabled = false
-                     #ifdef        ENABLE_TOOLTIPS
+                     #if FEATURE_TOOLTIPS
                      ,
                      const String& tooltip = EMPTY_STRING
-                     #endif // ifdef ENABLE_TOOLTIPS
+                     #endif // if FEATURE_TOOLTIPS
                      );
+
+void addFormCheckBoxes(const LabelType::Enum* label, size_t nrLabels);
 
 void addFormCheckBox(LabelType::Enum label,
-                     boolean         checked,
                      bool            disabled = false
-                     #ifdef          ENABLE_TOOLTIPS
+                     #if FEATURE_TOOLTIPS
                      ,
                      const String  & tooltip = EMPTY_STRING
-                     #endif // ifdef ENABLE_TOOLTIPS
+                     #endif // if FEATURE_TOOLTIPS
                      );
 
-void addFormCheckBox_disabled(LabelType::Enum label,
-                              boolean         checked);
-void addFormCheckBox(const __FlashStringHelper * label, const __FlashStringHelper * id, boolean checked, bool disabled = false);
-void addFormCheckBox(const __FlashStringHelper * label, const String& id, boolean checked, bool disabled = false);
+void addFormCheckBox_disabled(LabelType::Enum label);
+void addFormCheckBox(const __FlashStringHelper * label, const __FlashStringHelper * id, bool checked, bool disabled = false);
+void addFormCheckBox(const __FlashStringHelper * label, const String& id, bool checked, bool disabled = false);
 
 // ********************************************************************************
 // Add a Numeric Box form
 // ********************************************************************************
 void addFormNumericBox(LabelType::Enum label,
-                       int             value,
                        int             min = INT_MIN,
                        int             max = INT_MAX
-                       #ifdef          ENABLE_TOOLTIPS
+                       #if FEATURE_TOOLTIPS
                        ,
                        const String  & tooltip = EMPTY_STRING
-                       #endif // ifdef ENABLE_TOOLTIPS
+                       #endif // if FEATURE_TOOLTIPS
+                       ,
+                       bool disabled = false
+                       );
+
+void addFormNumericBox(const __FlashStringHelper * label, 
+                       const __FlashStringHelper * id, 
+                       int value, 
+                       int min = INT_MIN, 
+                       int max = INT_MAX
+                       #if FEATURE_TOOLTIPS
+                       ,
+                       const String& tooltip = EMPTY_STRING
+                       #endif // if FEATURE_TOOLTIPS
+                       ,
+                       bool disabled = false
                        );
 
 void addFormNumericBox(const String& label,
@@ -78,22 +93,24 @@ void addFormNumericBox(const String& label,
                        int           value,
                        int           min = INT_MIN,
                        int           max = INT_MAX
-                       #ifdef        ENABLE_TOOLTIPS
+                       #if FEATURE_TOOLTIPS
                        ,
                        const String& tooltip = EMPTY_STRING
-                       #endif // ifdef ENABLE_TOOLTIPS
+                       #endif // if FEATURE_TOOLTIPS
+                       ,
+                       bool disabled = false
                        );
 
+
 void addFormFloatNumberBox(LabelType::Enum label,
-                           float           value,
                            float           min,
                            float           max,
                            uint8_t         nrDecimals = 6,
                            float           stepsize   = 0.0f
-                           #ifdef ENABLE_TOOLTIPS
+                           #if FEATURE_TOOLTIPS
                            ,
                            const String& tooltip = EMPTY_STRING
-                           #endif // ifdef ENABLE_TOOLTIPS
+                           #endif // if FEATURE_TOOLTIPS
                            );
 
 void addFormFloatNumberBox(const String& label,
@@ -103,12 +120,24 @@ void addFormFloatNumberBox(const String& label,
                            float         max,
                            uint8_t       nrDecimals = 6,
                            float         stepsize   = 0.0f
-                           #ifdef ENABLE_TOOLTIPS
+                           #if FEATURE_TOOLTIPS
                            ,
                            const String& tooltip = EMPTY_STRING
-                           #endif // ifdef ENABLE_TOOLTIPS
+                           #endif // if FEATURE_TOOLTIPS
                            );
-void addFormNumericBox(const __FlashStringHelper * label, const __FlashStringHelper * id, int value, int min = INT_MIN, int max = INT_MAX);
+
+void addFormFloatNumberBox(const __FlashStringHelper * label,
+                           const __FlashStringHelper * id,
+                           float         value,
+                           float         min,
+                           float         max,
+                           uint8_t       nrDecimals = 6,
+                           float         stepsize   = 0.0f
+                           #if FEATURE_TOOLTIPS
+                           ,
+                           const String& tooltip = EMPTY_STRING
+                           #endif // if FEATURE_TOOLTIPS
+                           );
 
 
 // ********************************************************************************
@@ -127,7 +156,7 @@ void addFormTextBox(const __FlashStringHelper * label,
                     int           maxlength,
                     bool          readonly = false,
                     bool          required = false,
-                    const String& pattern = "");
+                    const String& pattern = EMPTY_STRING);
 
 void addFormTextBox(const String& label,
                     const String& id,
@@ -135,11 +164,29 @@ void addFormTextBox(const String& label,
                     int           maxlength,
                     bool          readonly = false,
                     bool          required = false,
-                    const String& pattern  = ""
-                    #ifdef ENABLE_TOOLTIPS
+                    const String& pattern  = EMPTY_STRING
+                    #if FEATURE_TOOLTIPS
                     ,
                     const String& tooltip = EMPTY_STRING
-                    #endif // ifdef ENABLE_TOOLTIPS
+                    #endif // if FEATURE_TOOLTIPS
+                    ,
+                    const String& datalist = EMPTY_STRING
+                    );
+
+void addFormTextBox(const __FlashStringHelper * classname,
+                    const String& label,
+                    const String& id,
+                    const String& value,
+                    int           maxlength,
+                    bool          readonly = false,
+                    bool          required = false,
+                    const String& pattern  = EMPTY_STRING
+                    #if FEATURE_TOOLTIPS
+                    ,
+                    const String& tooltip = EMPTY_STRING
+                    #endif // if FEATURE_TOOLTIPS
+                    ,
+                    const String& datalist  = EMPTY_STRING
                     );
 
 
@@ -151,10 +198,10 @@ void addFormTextArea(const String& label,
                      int           columns,
                      bool          readonly = false,
                      bool          required = false
-                     #ifdef        ENABLE_TOOLTIPS
+                     #if FEATURE_TOOLTIPS
                      ,
                      const String& tooltip = EMPTY_STRING
-                     #endif // ifdef ENABLE_TOOLTIPS
+                     #endif // if FEATURE_TOOLTIPS
                      );
 
 // ********************************************************************************
@@ -165,10 +212,10 @@ void addFormPasswordBox(const String& label,
                         const String& id,
                         const String& password,
                         int           maxlength
-                        #ifdef        ENABLE_TOOLTIPS
+                        #if FEATURE_TOOLTIPS
                         ,
                         const String& tooltip = EMPTY_STRING
-                        #endif // ifdef ENABLE_TOOLTIPS
+                        #endif // if FEATURE_TOOLTIPS
                         );
 
 bool getFormPassword(const String& id,
@@ -178,121 +225,89 @@ bool getFormPassword(const String& id,
 // Add a IP Box form
 // ********************************************************************************
 
+void addFormIPBox(const __FlashStringHelper *label,
+                  const __FlashStringHelper *id,
+                  const uint8_t ip[4]);
+
 void addFormIPBox(const String& label,
                   const String& id,
                   const uint8_t ip[4]);
 
+void addFormIPBox(const __FlashStringHelper *label,
+                  const __FlashStringHelper *id,
+                  const IPAddress& ip);
+
+void addFormIPBox(const String& label,
+                  const String& id,
+                  const IPAddress& ip);
+
+// ********************************************************************************
+// Add a MAC address Box form
+// ********************************************************************************
+void addFormMACBox(const String& label, const String& id, const MAC_address mac);
+
 // ********************************************************************************
 // Add a IP Access Control select dropdown list
 // ********************************************************************************
-void addFormIPaccessControlSelect(const String& label,
-                                  const String& id,
+void addFormIPaccessControlSelect(const __FlashStringHelper * label,
+                                  const __FlashStringHelper * id,
                                   int           choice);
+
+// ********************************************************************************
+// a Separator character selector
+// ********************************************************************************
+void addFormSeparatorCharInput(const __FlashStringHelper *rowLabel,
+                               const __FlashStringHelper *id,
+                               int                        value,
+                               const String             & charset,
+                               const __FlashStringHelper *additionalText);
 
 // ********************************************************************************
 // Add a selector form
 // ********************************************************************************
 
+/*
 void addFormPinSelect(const String& label,
                       const String& id,
                       int           choice);
 void addFormPinSelect(const String& label,
                       const __FlashStringHelper * id,
                       int           choice);
+void addFormPinSelect(const __FlashStringHelper * label,
+                      const __FlashStringHelper * id,
+                      int           choice);
+*/
 void addFormPinSelect(PinSelectPurpose purpose, const String& label, const __FlashStringHelper * id, int choice);
+void addFormPinSelect(PinSelectPurpose purpose, const String& label, const String& id, int choice);
 
+void addFormPinSelect(PinSelectPurpose purpose, const __FlashStringHelper * label, const __FlashStringHelper * id, int choice);
+#if FEATURE_I2C
 void addFormPinSelectI2C(const String& label,
                          const String& id,
+                         uint8_t       i2cBus,
                          int           choice);
 
 void addFormSelectorI2C(const String& id,
                         int           addressCount,
-                        const int     addresses[],
-                        int           selectedIndex
-                        #ifdef ENABLE_TOOLTIPS
+                        const uint8_t addresses[],
+                        int           selectedIndex,
+                        uint8_t       defaultAddress = 0 // Address 0 is invalid
+                        #if FEATURE_TOOLTIPS
                         ,
                         const String& tooltip = EMPTY_STRING
                         #endif
                         );
+#endif
 
-void addFormSelector(const String& label,
-                     const String& id,
-                     int           optionCount,
-                     const String  options[],
-                     const int     indices[],
-                     int           selectedIndex
-                     #ifdef ENABLE_TOOLTIPS
-                     ,
-                     const String& tooltip = EMPTY_STRING
-                     #endif
-                     );
+void addFormSelector_YesNo(const __FlashStringHelper * label,
+                           const __FlashStringHelper * id,
+                           int           selectedIndex,
+                           bool       reloadonchange);
 
-void addFormSelector(const __FlashStringHelper * label, const __FlashStringHelper * id, int optionCount, const __FlashStringHelper * options[], const int indices[], int selectedIndex, bool reloadonchange = false);
-void addFormSelector(const String& label, const String& id, int optionCount, const __FlashStringHelper * options[], const int indices[], int selectedIndex);
-void addFormSelector(const __FlashStringHelper * label, const __FlashStringHelper * id, int optionCount, const String options[], const int indices[], int selectedIndex);
-
-void addFormSelector(const String& label,
-                     const String& id,
-                     int           optionCount,
-                     const __FlashStringHelper * options[],
-                     const int     indices[],
-                     int           selectedIndex,
-                     bool          reloadonchange);
-
-void addFormSelector(const String& label,
-                     const String& id,
-                     int           optionCount,
-                     const __FlashStringHelper * options[],
-                     const int     indices[],
-                     const String  attr[],
-                     int           selectedIndex,
-                     boolean       reloadonchange);
-
-void addFormSelector_script(const String& label,
-                            const String& id,
-                            int           optionCount,
-                            const __FlashStringHelper * options[],
-                            const int     indices[],
-                            const String  attr[],
-                            int           selectedIndex,
-                            const String& onChangeCall);
-
-
-void addFormSelector(const String& label,
-                     const String& id,
-                     int           optionCount,
-                     const String  options[],
-                     const int     indices[],
-                     int           selectedIndex,
-                     bool          reloadonchange);
-
-void addFormSelector(const String& label,
-                     const String& id,
-                     int           optionCount,
-                     const String  options[],
-                     const int     indices[],
-                     const String  attr[],
-                     int           selectedIndex,
-                     boolean       reloadonchange
-                     #ifdef ENABLE_TOOLTIPS
-                     ,
-                     const String& tooltip = EMPTY_STRING
-                     #endif
-                     );
-
-void addFormSelector_script(const String& label,
-                            const String& id,
-                            int           optionCount,
-                            const String  options[],
-                            const int     indices[],
-                            const String  attr[],
-                            int           selectedIndex,
-                            const String& onChangeCall
-                            #ifdef ENABLE_TOOLTIPS
-                            ,
-                            const String& tooltip = EMPTY_STRING
-                            #endif
-                            );
+void addFormSelector_YesNo(const __FlashStringHelper * label,
+                           const String& id,
+                           int           selectedIndex,
+                           bool       reloadonchange);
 
 // ********************************************************************************
 // Add a GPIO pin select dropdown list
@@ -307,15 +322,51 @@ void addFormPinStateSelect(int gpio,
 
 int getFormItemInt(const __FlashStringHelper * key, int defaultValue);
 int getFormItemInt(const String& key, int defaultValue);
+uint64_t getFormItemUInt64(const String& key, uint64_t defaultValue);
 
 bool getCheckWebserverArg_int(const String& key,
                               int         & value);
 
-bool update_whenset_FormItemInt(const String& key,
-                                int         & value);
+bool getCheckWebserverArg_int(const String& key,
+                              uint32_t      & value);
+
+bool getCheckWebserverArg_int(const String& key,
+                              uint64_t      & value);
+
+bool getCheckWebserverArg_int(const String& key,
+                              int64_t      & value);
+
+bool update_whenset_FormItemInt(const __FlashStringHelper * key,
+                                int         & value,
+                                bool* changed = nullptr);
 
 bool update_whenset_FormItemInt(const String& key,
-                                uint8_t     & value);
+                                int         & value,
+                                bool* changed = nullptr);
+
+bool update_whenset_FormItemInt(const __FlashStringHelper * key,
+                                uint32_t    & value,
+                                bool* changed = nullptr);
+
+bool update_whenset_FormItemInt(const String& key,
+                                uint32_t    & value,
+                                bool* changed = nullptr);
+
+bool update_whenset_FormItemInt(const __FlashStringHelper * key,
+                                int8_t      & value,
+                                bool* changed = nullptr);
+
+bool update_whenset_FormItemInt(const String& key,
+                                int8_t      & value,
+                                bool* changed = nullptr);
+
+bool update_whenset_FormItemInt(const __FlashStringHelper * key,
+                                uint8_t     & value,
+                                bool* changed = nullptr);
+
+bool update_whenset_FormItemInt(const String& key,
+                                uint8_t     & value,
+                                bool* changed = nullptr);
 
 // Note: Checkbox values will not appear in POST Form data if unchecked.
 // So if webserver does not have an argument for a checkbox form, it means it should be considered unchecked.
@@ -333,9 +384,19 @@ float getFormItemFloat(const LabelType::Enum& id);
 
 bool  isFormItem(const String& id);
 
+void  copyFormPassword(const __FlashStringHelper * id,
+                       char         *pPassword,
+                       int           maxlength);
 void  copyFormPassword(const String& id,
                        char         *pPassword,
                        int           maxlength);
+
+# if FEATURE_MQTT_DISCOVER && FEATURE_MQTT_DEVICECLASS
+void addFormSelector_binarySensorDeviceClass(const __FlashStringHelper*label, 
+                                             const __FlashStringHelper*id, 
+                                             int selectedIndex,
+                                             bool addLabelAsFormSubHeader = true);
+# endif // if FEATURE_MQTT_DISCOVER && FEATURE_MQTT_DEVICECLASS
 
 
 #endif // ifndef WEBSERVER_WEBSERVER_MARKUP_FORMS_H

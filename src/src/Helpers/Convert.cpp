@@ -1,68 +1,58 @@
-#include "Convert.h"
+#include "../Helpers/Convert.h"
+
+#include "../Helpers/StringConverter.h"
+#include "../Helpers/ESPEasy_time_calc.h"
 
 /*********************************************************************************************\
    Convert bearing in degree to bearing string
 \*********************************************************************************************/
 const __FlashStringHelper * getBearing(int degrees)
 {
-  const int nr_directions = 16;
-  float stepsize      = (360.0f / nr_directions);
+  const __FlashStringHelper* directions[] {
+    F("N"),
+    F("NNE"),
+    F("NE"),
+    F("ENE"),
+    F("E"),
+    F("ESE"),
+    F("SE"),
+    F("SSE"),
+    F("S"),
+    F("SSW"),
+    F("SW"),
+    F("WSW"),
+    F("W"),
+    F("WNW"),
+    F("NW"),
+    F("NNW")
+  };
+  constexpr size_t nrDirections = NR_ELEMENTS(directions);
+  const float stepsize          = (360.0f / nrDirections);
 
   if (degrees < 0) { degrees += 360; } // Allow for bearing -360 .. 359
-  int bearing_idx = int((degrees + (stepsize / 2.0f)) / stepsize) % nr_directions;
+  const size_t bearing_idx = int((degrees + (stepsize / 2.0f)) / stepsize) % nrDirections;
 
-  if (bearing_idx >= 0) {
-    switch (bearing_idx) {
-      case 0: return F("N");
-      case 1: return F("NNE");
-      case 2: return F("NE");
-      case 3: return F("ENE");
-      case 4: return F("E");
-      case 5: return F("ESE");
-      case 6: return F("SE");
-      case 7: return F("SSE");
-      case 8: return F("S");
-      case 9: return F("SSW");
-      case 10: return F("SW");
-      case 11: return F("WSW");
-      case 12: return F("W");
-      case 13: return F("WNW");
-      case 14: return F("NW");
-      case 15: return F("NNW");
-    }
+  if (bearing_idx < nrDirections) {
+    return directions[bearing_idx];
   }
   return F("");
 }
 
 float CelsiusToFahrenheit(float celsius) {
-  return celsius * (9.0f / 5.0f) + 32;
+  constexpr float ratio = 9.0f / 5.0f;
+  return celsius * ratio + 32;
 }
 
 int m_secToBeaufort(float m_per_sec) {
-  if (m_per_sec < 0.3f) { return 0; }
-
-  if (m_per_sec < 1.6f) { return 1; }
-
-  if (m_per_sec < 3.4f) { return 2; }
-
-  if (m_per_sec < 5.5f) { return 3; }
-
-  if (m_per_sec < 8.0f) { return 4; }
-
-  if (m_per_sec < 10.8f) { return 5; }
-
-  if (m_per_sec < 13.9f) { return 6; }
-
-  if (m_per_sec < 17.2f) { return 7; }
-
-  if (m_per_sec < 20.8f) { return 8; }
-
-  if (m_per_sec < 24.5f) { return 9; }
-
-  if (m_per_sec < 28.5f) { return 10; }
-
-  if (m_per_sec < 32.6f) { return 11; }
-  return 12;
+  // Use ints wit 0.1 m/sec resolution to reduce size.
+  const uint16_t dm_per_sec = 10 * m_per_sec;
+  const uint16_t speeds[]{3, 16, 34, 55, 80, 108, 139, 172, 208, 245, 285, 326};  
+  constexpr int nrElements = NR_ELEMENTS(speeds);
+  
+  for (int bft = 0; bft < nrElements; ++bft) {
+    if (dm_per_sec < speeds[bft]) return bft;
+  }
+  return nrElements;  
 }
 
 String centimeterToImperialLength(float cm) {
@@ -91,84 +81,93 @@ float minutesToDay(int minutes) {
 }
 
 String minutesToDayHour(int minutes) {
-  int  days  = minutes / 1440;
-  int  hours = (minutes % 1440) / 60;
-  char TimeString[8] = {0}; // 5 digits plus the null char minimum
-
-  sprintf_P(TimeString, PSTR("%d%c%02d%c"), days, 'd', hours, 'h');
-  return TimeString;
-}
-
-String minutesToHourMinute(int minutes) {
-  int  hours = (minutes % 1440) / 60;
-  int  mins  = (minutes % 1440) % 60;
-  char TimeString[20] = {0};
-
-  sprintf_P(TimeString, PSTR("%d%c%02d%c"), hours, 'h', mins, 'm');
-  return TimeString;
+  const int  days  = minutes / 1440;
+  const int  hours = (minutes % 1440) / 60;
+  return strformat(F("%dd%02dh"), days, hours);
 }
 
 String minutesToDayHourMinute(int minutes) {
-  int  days  = minutes / 1440;
-  int  hours = (minutes % 1440) / 60;
-  int  mins  = (minutes % 1440) % 60;
-  char TimeString[20] = {0};
-
-  sprintf_P(TimeString, PSTR("%d%c%02d%c%02d%c"), days, 'd', hours, 'h', mins, 'm');
-  return TimeString;
+  const int  days  = minutes / 1440;
+  const int  hours = (minutes % 1440) / 60;
+  const int  mins  = (minutes % 1440) % 60;
+  if (days == 0) {
+    return strformat(F("%02dh%02dm"), hours, mins);
+  }
+  return strformat(F("%dd%02dh%02dm"), days, hours, mins);
 }
 
-String secondsToDayHourMinuteSecond(int seconds) {
-  int  sec     = seconds % 60;
-  int  minutes = seconds / 60;
-  int  days    = minutes / 1440;
-  int  hours   = (minutes % 1440) / 60;
-  int  mins    = (minutes % 1440) % 60;
-  char TimeString[20] = {0};
+String minutesToHourColonMinute(int minutes) {
+  const int  hours = (minutes % 1440) / 60;
+  const int  mins  = (minutes % 1440) % 60;
 
-  sprintf_P(TimeString, PSTR("%d%c%02d%c%02d%c%02d"), days, 'd', hours, ':', mins, ':', sec);
-  return TimeString;
+  return strformat(F("%02d:%02d"), hours, mins);
 }
 
-String format_msec_duration(int64_t duration) {
-  String result;
-
-  if (duration < 0) {
-    result   = "-";
-    duration = -1ll * duration;
-  }
-
-  if (duration < 10000ll) {
-    result += static_cast<int32_t>(duration);
-    result += F(" ms");
-    return result;
-  }
-  duration /= 1000ll;
-
-  if (duration < 3600ll) {
-    int sec     = duration % 60ll;
-    int minutes = duration / 60ll;
-
-    if (minutes > 0ll) {
-      result += minutes;
-      result += F(" m ");
+String secondsToDayHourMinuteSecond(int seconds, bool useHMS) {
+  const int  sec     = seconds % 60;
+  const int  minutes = seconds / 60;
+  const int  days    = minutes / 1440;
+  const int  min_day = (minutes % 1440);
+  const int  hours   = min_day / 60;
+  const int  mins    = min_day % 60;
+  if (days == 0) {
+    if (hours == 0 && useHMS) { 
+      return strformat(F("%dm%02ds"), mins, sec); 
     }
-    result += sec;
-    result += F(" s");
-    return result;
-  }
-  duration /= 60ll;
-
-  if (duration < 1440ll) { return minutesToHourMinute(duration); }
-  return minutesToDayHourMinute(duration);
+    return strformat(
+      useHMS ? F("%dh%02dm%02ds") : F("%02d:%02d:%02d"), 
+      hours, mins, sec);
+  } 
+  return strformat(
+    useHMS ? F("%dT%02dh%02dm%02ds") : F("%dT%02d:%02d:%02d"), 
+    days, hours, mins, sec);
 }
+
+String secondsToDayHourMinuteSecond_ms(int64_t systemMicros, bool useHMS) 
+{
+  if (systemMicros < 0ll) {
+    return concat('-', secondsToDayHourMinuteSecond_ms(-1ll*systemMicros, useHMS));
+  }
+
+  uint32_t usec{};
+  const uint32_t seconds = micros_to_sec_usec(systemMicros, usec);
+  return strformat(
+    F("%s.%03u"),
+    secondsToDayHourMinuteSecond(seconds, useHMS).c_str(),
+    usec / 1000ul);
+}
+
+String format_msec_duration(int64_t duration, bool useHMS) {
+  if (duration < 0ll) {
+    return concat('-', format_msec_duration(-1ll*duration, useHMS));
+  }
+  const uint32_t duration_s = duration / 1000ll;
+  const int32_t duration_ms = duration % 1000ll;
+
+  if (duration_s < 60) {
+    return strformat(
+      useHMS ? F("%02d.%03d sec") : F("%02d.%03d"),
+      duration_s,
+      duration_ms);
+  }
+  if (useHMS && duration_s > 60) {
+    // No need to show msec when time is over 1 minute
+    return secondsToDayHourMinuteSecond(duration_s, useHMS);
+  }
+  return strformat(
+    F("%s.%03d"),
+    secondsToDayHourMinuteSecond(duration_s, useHMS).c_str(),
+    duration_ms);
+}
+
+String format_msec_duration_HMS(int64_t duration) { return format_msec_duration(duration, true); }
 
 
 // Compute the dew point temperature, given temperature and humidity (temp in Celsius)
 // Formula: http://www.ajdesigner.com/phphumidity/dewpoint_equation_dewpoint_temperature.php
 // Td = (f/100)^(1/8) * (112 + 0.9*T) + 0.1*T - 112
 float compute_dew_point_temp(float temperature, float humidity_percentage) {
-  return pow(humidity_percentage / 100.0f, 0.125f) *
+  return powf(humidity_percentage / 100.0f, 0.125f) *
          (112.0f + 0.9f*temperature) + 0.1f*temperature - 112.0f;
 }
 
@@ -176,7 +175,7 @@ float compute_dew_point_temp(float temperature, float humidity_percentage) {
 // Formula: http://www.ajdesigner.com/phphumidity/dewpoint_equation_relative_humidity.php
 // f = 100 * ((112 - 0.1*T + Td) / (112 + 0.9 * T))^8
 float compute_humidity_from_dewpoint(float temperature, float dew_temperature) {
-  return 100.0f * pow((112.0f - 0.1f * temperature + dew_temperature) /
+  return 100.0f * powf((112.0f - 0.1f * temperature + dew_temperature) /
                      (112.0f + 0.9f * temperature), 8);
 }
 
@@ -192,7 +191,7 @@ float pressureElevation(float atmospheric, float altitude) {
   // Note that using the equation from wikipedia can give bad results
   // at high altitude.  See this thread for more information:
   //  http://forums.adafruit.com/viewtopic.php?f=22&t=58064
-  return atmospheric / pow(1.0f - (altitude / 44330.0f), 5.255f);
+  return atmospheric / powf(1.0f - (altitude / 44330.0f), 5.255f);
 }
 
 float altitudeFromPressure(float atmospheric, float seaLevel)
@@ -203,7 +202,7 @@ float altitudeFromPressure(float atmospheric, float seaLevel)
   // Note that using the equation from wikipedia can give bad results
   // at high altitude.  See this thread for more information:
   //  http://forums.adafruit.com/viewtopic.php?f=22&t=58064
-  return 44330.0f * (1.0f - pow(atmospheric / seaLevel, 0.1903f));
+  return 44330.0f * (1.0f - powf(atmospheric / seaLevel, 0.1903f));
 }
 
 
@@ -212,9 +211,9 @@ float altitudeFromPressure(float atmospheric, float seaLevel)
 /********************************************************************************************\
    In memory convert float to long
  \*********************************************************************************************/
-unsigned long float2ul(float f)
+uint32_t float2ul(float f)
 {
-  unsigned long ul;
+  uint32_t ul;
 
   memcpy(&ul, &f, 4);
   return ul;
@@ -223,7 +222,7 @@ unsigned long float2ul(float f)
 /********************************************************************************************\
    In memory convert long to float
  \*********************************************************************************************/
-float ul2float(unsigned long ul)
+float ul2float(uint32_t ul)
 {
   float f;
 
@@ -231,35 +230,4 @@ float ul2float(unsigned long ul)
   return f;
 }
 
-/*********************************************************************************************\
-   Workaround for removing trailing white space when String() converts a float with 0 decimals
-\*********************************************************************************************/
-String toString(const float& value, uint8_t decimals)
-{
-  String sValue = String(value, decimals);
 
-  sValue.trim();
-  return sValue;
-}
-
-String doubleToString(const double& value, int decimals, bool trimTrailingZeros) {
-  String res(value, decimals);
-  if (trimTrailingZeros) {
-    int dot_pos = res.lastIndexOf('.');
-    if (dot_pos != -1) {
-      bool someTrimmed = false;
-      for (int i = res.length()-1; i > dot_pos && res[i] == '0'; --i) {
-        someTrimmed = true;
-        res[i] = ' ';
-      }
-      if (someTrimmed) {
-        res.trim();
-      }
-      if (res.endsWith(F("."))) {
-        res[dot_pos] = ' ';
-        res.trim();
-      }
-    }
-  }
-  return res;
-}

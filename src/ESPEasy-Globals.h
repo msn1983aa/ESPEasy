@@ -13,7 +13,7 @@
 //enable reporting status to ESPEasy developers.
 //this informs us of crashes and stability issues.
 // not finished yet!
-// #define FEATURE_REPORTING
+// #define FEATURE_REPORTING  1
 
 //Select which plugin sets you want to build.
 //These are normally automaticly set via the Platformio build environment.
@@ -22,14 +22,11 @@
 //(512k is NOT finsihed or tested yet as of v2.0.0-dev6)
 
 
-//build all plugins that are in test stadium
-//#define PLUGIN_BUILD_TESTING
-
 //build all plugins that still are being developed and are broken or incomplete
 //#define PLUGIN_BUILD_DEV
 
 //add this if you want SD support (add 10k flash)
-//#define FEATURE_SD
+//#define FEATURE_SD 1
 
 
 
@@ -78,33 +75,27 @@ extern boolean printToWebJSON;
 
 
 // FIXME TD-er: Must move this to some proper class (ESPEasy_Scheduler ?)
-extern unsigned long timermqtt_interval;
+extern uint32_t timermqtt_interval;
 
 
-extern unsigned long lastSend;
-extern unsigned long lastWeb;
+extern uint32_t lastSend;
+extern uint32_t lastWeb;
 
-extern unsigned long wdcounter;
-extern unsigned long timerAwakeFromDeepSleep;
+extern uint32_t wdcounter;
+extern uint32_t timerAwakeFromDeepSleep;
 
 
 #if FEATURE_ADC_VCC
 extern float vcc;
 #endif
 
-extern boolean WebLoggedIn;
-extern int WebLoggedInTimer;
-
-
-extern String dummyString;  // FIXME @TD-er  This may take a lot of memory over time, since long-lived Strings only tend to grow.
-
-
 
 
 extern bool shouldReboot;
 extern bool firstLoop;
 
-
+// This is read from the settings at boot.
+// Even if this setting is changed, you need to reboot to activate the changes.
 extern boolean UseRTOSMultitasking;
 
 #endif /* ESPEASY_GLOBALS_H_ */

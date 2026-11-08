@@ -6,6 +6,8 @@
 /// @note Kudos:
 ///   Hamper: For the breakdown and mapping of the bit values.
 ///   fraschizzato: For additional ZoneFollow & SwingVStep analysis.
+/// @note Timers seem to use the `COOLIX48` protocol.
+/// @see https://github.com/crankyoldgit/IRremoteESP8266/issues/1694
 
 // Supports:
 //   Brand: Beko, Model: RG57K7(B)/BGEF Remote
@@ -17,6 +19,12 @@
 //   Brand: Airwell, Model: RC08B remote
 //   Brand: Kastron, Model: RG57A7/BGEF Inverter remote
 //   Brand: Kaysun, Model: Casual CF A/C
+//   Brand: Toshiba, Model: RAS-M10YKV-E A/C
+//   Brand: Toshiba, Model: RAS-M13YKV-E A/C
+//   Brand: Toshiba, Model: RAS-4M27YAV-E A/C
+//   Brand: Toshiba, Model: WH-E1YE remote
+//   Brand: Bosch, Model: RG36B4/BGE remote
+//   Brand: Bosch, Model: B1ZAI2441W/B1ZAO2441W A/C
 
 #ifndef IR_COOLIX_H_
 #define IR_COOLIX_H_
@@ -157,6 +165,7 @@ class IRCoolixAC {
   static stdAc::fanspeed_t toCommonFanSpeed(const uint8_t speed);
   stdAc::state_t toCommon(const stdAc::state_t *prev = NULL) const;
   String toString(void) const;
+  void setZoneFollow(const bool on);
 #ifndef UNIT_TEST
 
  private:
@@ -181,7 +190,6 @@ class IRCoolixAC {
   void setTempRaw(const uint8_t code);
   uint8_t getTempRaw(void) const;
   void setSensorTempRaw(const uint8_t code);
-  void setZoneFollow(const bool on);
   bool isSpecialState(void) const;
   bool handleSpecialState(const uint32_t data);
   void updateAndSaveState(const uint32_t raw_state);

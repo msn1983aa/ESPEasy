@@ -1,7 +1,7 @@
 import os
 import enum
 import subprocess
-
+import shutil
 
 class CannotArchive(Exception):
     pass
@@ -21,21 +21,14 @@ def cmd(*, env, pio_can_fail):
             raise
 
     output = "build_output"
-    dirs = [os.path.join(output, "bin"), os.path.join(output, "debug")]
+    dirs = [os.path.join(output, "bin")]
 
     # Notice that we also have build_output/reject containing .elf that cannot
     # be made into a flashable .bin
 
-    archive = "ESPEasy_{}.zip".format(env)
-    if built:
-        if not all([os.path.isdir(d) for d in dirs]):
-            raise CannotArchive(
-                "Built, but build_output does not have expected directories"
-            )
-        cmd = ["zip", "-q", "-rr", archive]
-        cmd.extend(dirs)
+    for _dir in dirs:
+      shutil.copytree(_dir, os.path.basename(_dir))
 
-        subprocess.check_call(cmd)
 
 
 if __name__ == "__main__":

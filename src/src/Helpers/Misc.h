@@ -1,18 +1,56 @@
 #ifndef HELPERS_MISC_H
 #define HELPERS_MISC_H
 
-#include <Arduino.h>
+#include "../../ESPEasy_common.h"
 
 #include "../DataStructs/PinMode.h"
 #include "../DataTypes/ControllerIndex.h"
+#include "../DataTypes/IntendedRebootReason.h"
 #include "../DataTypes/TaskIndex.h"
 #include "../Helpers/Scheduler.h"
 
-#include "../../ESPEasy_common.h"
+#include "../../ESPEasy/net/DataTypes/NetworkIndex.h"
 
-#ifdef FEATURE_SD
-#include <SD.h>
-#endif
+#define bitReadULL(value, bit) ((value) >> (bit) & 1)
+#define bitSetULL(value, bit) ((value) |= (1ULL << (bit)))
+#define bitClearULL(value, bit) ((value) &= ~(1ULL << (bit)))
+#define bitWriteULL(value, bit, bitvalue) (bitvalue ? bitSetULL(value, bit) : bitClearULL(value, bit))
+
+// Simple bitwise get/set functions
+
+#define setNBitToUL(N, B, V, M)  N=(((N) & ~((M) << (B))) | (static_cast<uint32_t>((V) & (M)) << (B)))
+#define getNBitFromUL(number, bitnr, mask)  (((number) >> (bitnr)) & (mask))
+
+#define set16BitToUL(N, B, V) setNBitToUL(N, B, V, 0xFFFFUL)
+#define set8BitToUL(N, B, V) setNBitToUL(N, B, V, 0xFFUL)
+#define set4BitToUL(N, B, V) setNBitToUL(N, B, V, 0x0FUL)
+#define set3BitToUL(N, B, V) setNBitToUL(N, B, V, 0x07UL)
+#define set2BitToUL(N, B, V) setNBitToUL(N, B, V, 0x03UL)
+
+#define get16BitFromUL(number, bitnr)  getNBitFromUL(number, bitnr, 0xFFFFUL)
+#define get8BitFromUL(number, bitnr)  getNBitFromUL(number, bitnr, 0xFFUL)
+#define get4BitFromUL(number, bitnr)  getNBitFromUL(number, bitnr, 0x0FUL)
+#define get3BitFromUL(number, bitnr)  getNBitFromUL(number, bitnr, 0x07UL)
+#define get2BitFromUL(number, bitnr)  getNBitFromUL(number, bitnr, 0x03UL)
+
+
+// Convert byte array into multi-byte (unsigned) integer with most significant bits/bytes first
+// Typical use case: data[i] << 24 | data[i + 1] << 16 | data[i + 2] << 8 | data[i + 3]
+uint32_t getUlFromBigEndianByteStream(const uint8_t* data, uint8_t nrBytes);
+uint16_t getUint16FromBigEndianByteStream(const uint8_t* data);
+
+
+// Convert byte array into multi-byte (unsigned) integer with least significant bits/bytes first
+// Typical use case: data[i + 3] << 24 | data[i + 2] << 16 | data[i + 1] << 8 | data[i + 0]
+uint32_t getUlFromLittleEndianByteStream(const uint8_t* data, uint8_t nrBytes);
+uint16_t getUint16FromLittleEndianByteStream(const uint8_t* data);
+
+
+// Convert to and from Two's complement bit-order.
+// See: https://en.wikipedia.org/wiki/Two%27s_complement
+int32_t  fromTwosComplement(uint32_t twoComplementValue, uint8_t nrBits);
+uint32_t toTwosComplement(int32_t value, uint8_t nrBits);
+
 
 bool remoteConfig(struct EventStruct *event,
                   const String      & string);
@@ -22,7 +60,13 @@ bool remoteConfig(struct EventStruct *event,
 /********************************************************************************************\
    delay in milliseconds with background processing
  \*********************************************************************************************/
-void delayBackground(unsigned long dsdelay);
+void delayBackground(uint32_t dsdelay);
+
+/********************************************************************************************\
+   Toggle network enabled state
+ \*********************************************************************************************/
+bool setNetworkEnableStatus(ESPEasy::net::networkIndex_t networkIndex,
+                               bool              enabled);
 
 
 /********************************************************************************************\
@@ -34,9 +78,11 @@ bool setControllerEnableStatus(controllerIndex_t controllerIndex,
 /********************************************************************************************\
    Toggle task enabled state
  \*********************************************************************************************/
-bool setTaskEnableStatus(struct EventStruct *event,
+bool setTaskEnableStatus(taskIndex_t taskIndex,
                          bool        enabled);
 
+bool setTaskEnableStatus(struct EventStruct *event,
+                         bool        enabled);
 
 /********************************************************************************************\
    Clear task settings for given task
@@ -87,7 +133,7 @@ void dump(uint32_t addr);
                 calcBuffer[buf] = pgm_read_dword((uint32_t*)i+buf);                                       // read 4 bytes
                 CRCValues.numberOfCRCBytes+=sizeof(calcBuffer[0]);
              }
-             md5.add((uint8_t *)&calcBuffer[0],(*ptrEnd-i)<sizeof(calcBuffer) ? (*ptrEnd-i):sizeof(calcBuffer) );     // add buffer to md5.
+             md5.add(reinterpret_cast<const uint8_t *>(&calcBuffer[0]),(*ptrEnd-i)<sizeof(calcBuffer) ? (*ptrEnd-i):sizeof(calcBuffer) );     // add buffer to md5.
                 At the end not the whole buffer. md5 ptr to data in ram.
         }
    }
@@ -124,9 +170,9 @@ void emergencyReset();
 /********************************************************************************************\
    Delayed reboot, in case of issues, do not reboot with high frequency as it might not help...
  \*********************************************************************************************/
-void delayedReboot(int rebootDelay, ESPEasy_Scheduler::IntendedRebootReason_e reason = ESPEasy_Scheduler::IntendedRebootReason_e::DelayedReboot);
+void delayedReboot(int rebootDelay, IntendedRebootReason_e reason = IntendedRebootReason_e::DelayedReboot);
 
-void reboot(ESPEasy_Scheduler::IntendedRebootReason_e reason);
+void reboot(IntendedRebootReason_e reason);
 
 void FeedSW_watchdog();
 
@@ -154,21 +200,11 @@ void HSV2RGBW(float H,
               float I,
               int   rgbw[4]);
 
-// Simple bitwise get/set functions
+void RGB2HSV(uint8_t r,
+             uint8_t g,
+             uint8_t b,
+             float   hsv[3]);
 
-uint8_t get8BitFromUL(uint32_t number,
-                      uint8_t     bitnr);
-
-void    set8BitToUL(uint32_t& number,
-                    uint8_t      bitnr,
-                    uint8_t   value);
-
-uint8_t get4BitFromUL(uint32_t number,
-                      uint8_t     bitnr);
-
-void    set4BitToUL(uint32_t& number,
-                    uint8_t      bitnr,
-                    uint8_t   value);
 
 
 float getCPUload();
@@ -177,7 +213,8 @@ int getLoopCountPerSec();
 
 int getUptimeMinutes();
 
-bool intArrayContains(const int arraySize, const int array[], const int value);
+bool intArrayContains(const int arraySize, const int array[], const int& value);
+bool intArrayContains(const int arraySize, const uint8_t array[], const uint8_t& value);
 
 #ifndef BUILD_NO_RAM_TRACKER
 void logMemUsageAfter(const __FlashStringHelper * function, int value = -1);

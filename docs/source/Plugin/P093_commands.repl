@@ -1,5 +1,5 @@
 .. csv-table::
-        :header: "Command", "Extra information"
+        :header: "Command", "Description"
         :widths: 20, 40
 
         "
@@ -31,4 +31,9 @@
         ``MitsubishiHP,widevane,<value>``
         ","
         Value = ``<<``, ``<``, ``|``, ``>``, ``>>``, ``<>`` or ``SWING``
+        "
+        "
+        ``MitsubishiHP,remotetemperature,<value>``
+        ","
+        Value > ``0.0``: Use external temperature sensor, Value = ``0.0``: Use internal temperature sensor.
         "

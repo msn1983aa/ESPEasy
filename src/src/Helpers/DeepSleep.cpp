@@ -4,9 +4,9 @@
 #include "../../ESPEasy-Globals.h"
 
 #include "../ESPEasyCore/ESPEasy_Log.h"
-#include "../ESPEasyCore/ESPEasyEth.h"
-#include "../ESPEasyCore/ESPEasyNetwork.h"
-#include "../ESPEasyCore/ESPEasyWifi.h"
+#include "../../ESPEasy/net/eth/ESPEasyEth.h"
+#include "../../ESPEasy/net/ESPEasyNetwork.h"
+#include "../../ESPEasy/net/wifi/ESPEasyWifi.h"
 #include "../ESPEasyCore/ESPEasyRules.h"
 
 #include "../Globals/EventQueue.h"
@@ -33,7 +33,7 @@ int getDeepSleepMax()
   #endif // ifdef ESP8266
   #ifdef ESP32
   int dsmax = 281474976; // / 3600 (hour) / 24 (day) / 365 (year) = ~8 years. (max. 48 bits in microseconds)
-  #endif // ifdef ESp32
+  #endif // ifdef ESP32
 
 #if defined(CORE_POST_2_5_0)
   dsmax = INT_MAX;
@@ -59,12 +59,15 @@ bool isDeepSleepEnabled()
   // recommended wiring: 3-pin-header with 1=RST, 2=D0, 3=GND
   //                    short 1-2 for normal deep sleep / wakeup loop
   //                    short 2-3 to cancel sleep loop for modifying settings
+
+#ifndef ESP32 // pinMode() crashes the ESP32 when PSRAM is enabled and available. So don't check for ESP32.
   pinMode(16, INPUT_PULLUP);
 
   if (!digitalRead(16))
   {
     return false;
   }
+#endif
   return true;
 }
 
@@ -74,7 +77,7 @@ bool readyForSleep()
     return false;
   }
 
-  if (!NetworkConnected()) {
+  if (!ESPEasy::net::NetworkConnected()) {
     // Allow 12 seconds to establish connections
     return timeOutReached(timerAwakeFromDeepSleep + 12000);
   }
@@ -130,7 +133,7 @@ void deepSleepStart(int dsdelay)
 
   addLog(LOG_LEVEL_INFO, F("SLEEP: Powering down to deepsleep..."));
   RTC.deepSleepState = 1;
-  prepareShutdown(ESPEasy_Scheduler::IntendedRebootReason_e::DeepSleep);
+  prepareShutdown(IntendedRebootReason_e::DeepSleep);
 
   #if defined(ESP8266)
     # if defined(CORE_POST_2_5_0)
@@ -141,7 +144,7 @@ void deepSleepStart(int dsdelay)
 
   if (Settings.UseAlternativeDeepSleep()) {
     // See: https://github.com/esp8266/Arduino/issues/6318#issuecomment-711389479
-    #include "c_types.h"
+    #include <c_types.h>
     // system_phy_set_powerup_option:
     // 1 = RF initialization only calibrate VDD33 and Tx power which will take about 18 ms
     // 2 = RF initialization only calibrate VDD33 which will take about 2 ms

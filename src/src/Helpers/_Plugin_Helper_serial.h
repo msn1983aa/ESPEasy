@@ -2,55 +2,98 @@
 #define HELPERS__PLUGIN_HELPER_SERIAL_H
 
 
-#include <ESPeasySerial.h>
-
 #include "../../ESPEasy_common.h"
+
+constexpr uint8_t INCLUDE_SW_SERIAL  = (1 << 0);
+constexpr uint8_t INCLUDE_HW_SERIAL  = (1 << 1); // Ignored for now, always enabled
+constexpr uint8_t INCLUDE_I2C_SERIAL = (1 << 2);
+constexpr uint8_t INCLUDE_CDC_SERIAL = (1 << 3);
+constexpr uint8_t INCLUDE_ALL_SERIAL = (INCLUDE_SW_SERIAL | INCLUDE_HW_SERIAL | INCLUDE_I2C_SERIAL | INCLUDE_CDC_SERIAL);
+constexpr uint8_t INCLUDE_DEFAULT_SERIAL = INCLUDE_ALL_SERIAL;
+constexpr uint8_t INCLUDE_NOT_CDC_SERIAL = (INCLUDE_SW_SERIAL | INCLUDE_HW_SERIAL | INCLUDE_I2C_SERIAL);
+
+#ifdef PLUGIN_USES_SERIAL
+
+#include <ESPeasySerial.h>
 
 struct ESPeasySerialType;
 
-String serialHelper_getSerialTypeLabel(ESPEasySerialPort serType);
+const __FlashStringHelper* serialHelper_getSerialTypeLabel(ESPEasySerialPort serType,
+                                       bool              shortName = false);
 
-void serialHelper_log_GpioDescription(ESPEasySerialPort typeHint, int config_pin1, int config_pin2);
+void   serialHelper_log_GpioDescription(ESPEasySerialPort typeHint,
+                                        int               config_pin1,
+                                        int               config_pin2);
 
-String serialHelper_getGpioDescription(ESPEasySerialPort typeHint, int config_pin1, int config_pin2, const String& newline);
+String serialHelper_getGpioDescription(ESPEasySerialPort typeHint,
+                                       int               config_pin1,
+                                       int               config_pin2,
+                                       const String    & newline);
 
-void serialHelper_getGpioNames(struct EventStruct *event, bool rxOptional=false, bool txOptional=false);
+void serialHelper_getGpioNames(struct EventStruct *event,
+                               bool                rxOptional = false,
+                               bool                txOptional = false);
 
-int8_t serialHelper_getRxPin(struct EventStruct *event);
+void serialHelper_modbus_getGpioNames(struct EventStruct *event,
+                               bool                rxOptional = false,
+                               bool                txOptional = false,
+                               bool                DE_RE_optional = true);
 
-int8_t serialHelper_getTxPin(struct EventStruct *event);
+int8_t            serialHelper_getRxPin(struct EventStruct *event);
+
+int8_t            serialHelper_getTxPin(struct EventStruct *event);
 
 ESPEasySerialPort serialHelper_getSerialType(struct EventStruct *event);
 
-String serialHelper_getSerialTypeLabel(struct EventStruct *event);
+String            serialHelper_getSerialTypeLabel(struct EventStruct *event);
 
 #ifndef DISABLE_SC16IS752_Serial
-void serialHelper_addI2CuartSelectors(int address, int channel);
-#endif
+void serialHelper_addI2CuartSelectors(int    address,
+                                      int    channel,
+                                      String id  = "",
+                                      String uid = "");
+#endif // ifndef DISABLE_SC16IS752_Serial
 
 void serialHelper_webformLoad(struct EventStruct *event);
 
 // These helper functions were made to create a generic interface to setup serial port config.
 // See issue #2343 and Pull request https://github.com/letscontrolit/ESPEasy/pull/2352
 // For now P020 and P044 have been reverted to make them work again.
-void serialHelper_webformLoad(struct EventStruct *event, bool allowSoftwareSerial);
+void serialHelper_webformLoad(struct EventStruct *event,
+                              uint8_t             allowedSerial);
 
-void serialHelper_webformLoad(ESPEasySerialPort port, int rxPinDef, int txPinDef, bool allowSoftwareSerial);
+void serialHelper_webformLoad(ESPEasySerialPort port,
+                              int               rxPinDef,
+                              int               txPinDef,
+                              uint8_t           allowedSerial = INCLUDE_DEFAULT_SERIAL);
 
-void serialHelper_webformSave(uint8_t& port, int8_t &rxPin, int8_t &txPin);
+void serialHelper_webformLoad(ESPEasySerialPort port,
+                              int               rxPinDef,
+                              int               txPinDef,
+                              uint8_t           allowedSerial,
+                              String            label,
+                              String            id,
+                              String            pin1Var,
+                              String            pin2Var,
+                              String            i2c1Var,
+                              String            i2c2Var);
 
-void serialHelper_webformSave(struct EventStruct *event);
+void serialHelper_webformSave(uint8_t& port,
+                              int8_t & rxPin,
+                              int8_t & txPin);
 
-bool serialHelper_isValid_serialconfig(uint8_t serialconfig);
+void    serialHelper_webformSave(struct EventStruct *event);
 
-void serialHelper_serialconfig_webformLoad(struct EventStruct *event, uint8_t currentSelection);
+bool    serialHelper_isValid_serialconfig(uint8_t serialconfig);
+
+void    serialHelper_serialconfig_webformLoad(struct EventStruct *event,
+                                              uint8_t             currentSelection);
 
 uint8_t serialHelper_serialconfig_webformSave();
 
 // Used by some plugins, which used several TaskDevicePluginConfigLong
 uint8_t serialHelper_convertOldSerialConfig(uint8_t newLocationConfig);
 
+#endif // ifdef PLUGIN_USES_SERIAL
 
-
-
-#endif
+#endif // ifndef HELPERS__PLUGIN_HELPER_SERIAL_H

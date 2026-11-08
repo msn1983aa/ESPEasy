@@ -5,6 +5,10 @@
 // #################################### Plugin-107: SI1145 - UV index / IR / visible  ####################
 // #######################################################################################################
 
+/** Changelog:
+ * 2025-01-12 tonhuisman: Add support for MQTT AutoDiscovery
+ */
+
 # include "src/PluginStructs/P107_data_struct.h"
 
 # define PLUGIN_107
@@ -22,17 +26,15 @@ boolean Plugin_107(uint8_t function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
     {
-      Device[++deviceCount].Number           = PLUGIN_ID_107;
-      Device[deviceCount].Type               = DEVICE_TYPE_I2C;
-      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_SINGLE;
-      Device[deviceCount].Ports              = 0;
-      Device[deviceCount].PullUpOption       = false;
-      Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].FormulaOption      = true;
-      Device[deviceCount].ValueCount         = 3;
-      Device[deviceCount].SendDataOption     = true;
-      Device[deviceCount].TimerOption        = true;
-      Device[deviceCount].GlobalSyncOption   = true;
+      auto& dev = Device[++deviceCount];
+      dev.Number         = PLUGIN_ID_107;
+      dev.Type           = DEVICE_TYPE_I2C;
+      dev.VType          = Sensor_VType::SENSOR_TYPE_SINGLE;
+      dev.FormulaOption  = true;
+      dev.ValueCount     = 3;
+      dev.SendDataOption = true;
+      dev.TimerOption    = true;
+      dev.PluginStats    = true;
       break;
     }
 
@@ -50,11 +52,31 @@ boolean Plugin_107(uint8_t function, struct EventStruct *event, String& string)
       break;
     }
 
+    # if FEATURE_MQTT_DISCOVER
+    case PLUGIN_GET_DISCOVERY_VTYPES:
+    {
+      event->Par1 = static_cast<int>(Sensor_VType::SENSOR_TYPE_LUX_ONLY);
+      event->Par2 = static_cast<int>(Sensor_VType::SENSOR_TYPE_IR_ONLY);
+      event->Par3 = static_cast<int>(Sensor_VType::SENSOR_TYPE_UV_ONLY);
+      success     = true;
+      break;
+    }
+    # endif // if FEATURE_MQTT_DISCOVER
+
     case PLUGIN_I2C_HAS_ADDRESS:
     {
       success = (event->Par1 == 0x60);
       break;
     }
+
+    # if FEATURE_I2C_GET_ADDRESS
+    case PLUGIN_I2C_GET_ADDRESS:
+    {
+      event->Par1 = 0x60;
+      success     = true;
+      break;
+    }
+    # endif // if FEATURE_I2C_GET_ADDRESS
 
     case PLUGIN_INIT:
     {
@@ -62,9 +84,7 @@ boolean Plugin_107(uint8_t function, struct EventStruct *event, String& string)
       P107_data_struct *P107_data =
         static_cast<P107_data_struct *>(getPluginTaskData(event->TaskIndex));
 
-      if (nullptr != P107_data && P107_data->begin()) {
-        success = true;
-      }
+      success = (nullptr != P107_data && P107_data->begin());
       break;
     }
 
@@ -82,23 +102,19 @@ boolean Plugin_107(uint8_t function, struct EventStruct *event, String& string)
       }
       delay(8); // Measurement Rate: 255 * 31.25uS = 8ms
 
-      UserVar[event->BaseVarIndex]     = P107_data->uv.readVisible();
-      UserVar[event->BaseVarIndex + 1] = P107_data->uv.readIR();
-      UserVar[event->BaseVarIndex + 2] = P107_data->uv.readUV() / 100.0f;
+      UserVar.setFloat(event->TaskIndex, 0, P107_data->uv.readVisible());
+      UserVar.setFloat(event->TaskIndex, 1, P107_data->uv.readIR());
+      UserVar.setFloat(event->TaskIndex, 2, P107_data->uv.readUV() / 100.0f);
 
       P107_data->uv.reset(); // Stop the sensor reading
 
+      #ifndef BUILD_NO_DEBUG
       if (loglevelActiveFor(LOG_LEVEL_INFO)) {
-        String log = F("SI1145: Visible: ");
-        log += formatUserVarNoCheck(event->TaskIndex, 0);
-        addLog(LOG_LEVEL_INFO, log);
-        log  = F("SI1145: Infrared: ");
-        log += formatUserVarNoCheck(event->TaskIndex, 1);
-        addLog(LOG_LEVEL_INFO, log);
-        log  = F("SI1145: UV index: ");
-        log += formatUserVarNoCheck(event->TaskIndex, 2);
-        addLog(LOG_LEVEL_INFO, log);
+        addLogMove(LOG_LEVEL_INFO, concat(F("SI1145: Visible: "), formatUserVarNoCheck(event, 0)));
+        addLogMove(LOG_LEVEL_INFO, concat(F("SI1145: Infrared: "), formatUserVarNoCheck(event, 1)));
+        addLogMove(LOG_LEVEL_INFO, concat(F("SI1145: UV index: "), formatUserVarNoCheck(event, 2)));
       }
+      #endif // ifndef BUILD_NO_DEBUG
       success = true;
       break;
     }

@@ -4,112 +4,98 @@
 #include "../../ESPEasy_common.h"
 
 #include "../DataStructs/EventStructCommandWrapper.h"
+#include "../DataStructs/SchedulerTimerID.h"
 #include "../DataStructs/SystemTimerStruct.h"
+
+#include "../DataTypes/ESPEasy_plugin_functions.h"
+#include "../DataTypes/IntendedRebootReason.h"
 #include "../DataTypes/ProtocolIndex.h"
+#include "../DataTypes/SchedulerIntervalTimer.h"
+#include "../DataTypes/SchedulerPluginPtrType.h"
+
 #include "../Helpers/msecTimerHandlerStruct.h"
 
 #include <list>
 #include <map>
 
 
+
+  /*********************************************************************************************\
+  * ESPEasy uses a scheduler, which is essentially its heart beat.
+  * 
+  * It is basically a list of tuples with:
+  * - timestamp (in msec)
+  * - 32-bit value describing what should be done.
+  * 
+  * This list is sorted on timestamp, with the next scheduled action at the front.
+  * 
+  *   Scheduled Action Parameters
+  *   ---------------------------
+  * 
+  * The 32-bit value uses a few bits to signify its timer type.
+  * Per timer type the left over bits can be used to store some arguments.
+  *  
+  * Some timer types need to store more which cannot be stored in this 32-bit value.
+  * For example system timers (e.g. a timer started from rules) need more parameters.
+  * These will be stored in a separate map, where this 32-bit value is used as key to access these arguments.
+  * As it is stored in a map, this 32-bit value for this timer type needs to be unique.
+  * To make those values unique, some of the arguments are also stored in this 32-bit value.
+  * For example "Par1" may be used to make this more unique. 
+  * For GPIO longpulse the rising and falling edge can already be scheduled by including the pin state in this 32-bit value.
+  * 
+  *   Background Actions & System/Rules Events
+  *   ----------------------------------------
+  * 
+  * Whenever timestamp of the first item in this actions list is not yet due, 
+  * the scheduler may perform background tasks or call delay() to reduce power consumption.
+  * 
+  * N.B. These background tasks will also be executed at some minimal guaranteed interval, 
+  *      to make sure a fully loaded ESP will not stall as background work piles up.
+  * 
+  * Some actions do not have a specific scheduled timer, as they just have to be performed as soon as possible.
+  * For example processing rules events are put in a separate event queue.
+  * The Scheduler tries to find a good balance between processing such queued items 
+  * and making sure scheduled actions will be done as close as possible to their scheduled moment.
+  * 
+  *   Fixed Interval 'jitter'
+  *   -----------------------
+  * 
+  * A lot of ESPEasy's operations consists of repetitive actions.
+  * These often have a specific interval, like calls to PLUGIN_TEN_PER_SECOND.
+  * Also each task has its own configured interval.
+  *  
+  * Whenever an interval based scheduled action is running behind its schedule, 
+  * the scheduler will try to keep up with its original pace.
+  * For example:
+  * A call to PLUGIN_TEN_PER_SECOND is scheduled to run at time X.
+  * Whenever it is being processed, the first thing to do is to schedule it at time X + 100 msec.
+  * If the ESP is running behind, this new timestamp could already be in the past.
+  * The scheduler will then try to get in sync again, unless the scheduler missed more then 1 full interval.
+  * If this happens, the scheduler will just 'restart' the interval considering the current timestamp as start of the interval.
+  * 
+  * This will eventually spread scheduled intervals to their optimum interval cadance.
+  * However it may appear some scheduled actions may drift apart where they may have been running nearly in sync before.
+  * 
+  * If actions should be executed in sync, one should trigger such actions from the rules.
+  * For example grouping "taskRun" calls triggered via the same rules event.
+  * 
+  * 
+  * 
+  \*********************************************************************************************/
 class ESPEasy_Scheduler {
 public:
-
-  // ********************************************************************************
-  //   Timers used in the scheduler
-  // ********************************************************************************
-
-  enum class IntervalTimer_e {
-    TIMER_20MSEC,
-    TIMER_100MSEC,
-    TIMER_1SEC,
-    TIMER_30SEC,
-    TIMER_MQTT,
-    TIMER_STATISTICS,
-    TIMER_GRATUITOUS_ARP,
-    TIMER_MQTT_DELAY_QUEUE,
-    TIMER_C001_DELAY_QUEUE,
-    TIMER_C003_DELAY_QUEUE,
-    TIMER_C004_DELAY_QUEUE,
-    TIMER_C007_DELAY_QUEUE,
-    TIMER_C008_DELAY_QUEUE,
-    TIMER_C009_DELAY_QUEUE,
-    TIMER_C010_DELAY_QUEUE,
-    TIMER_C011_DELAY_QUEUE,
-    TIMER_C012_DELAY_QUEUE,
-    TIMER_C013_DELAY_QUEUE,
-    TIMER_C014_DELAY_QUEUE,
-    TIMER_C015_DELAY_QUEUE,
-    TIMER_C016_DELAY_QUEUE,
-    TIMER_C017_DELAY_QUEUE,
-    TIMER_C018_DELAY_QUEUE,
-    TIMER_C019_DELAY_QUEUE,
-    TIMER_C020_DELAY_QUEUE,
-    TIMER_C021_DELAY_QUEUE,
-    TIMER_C022_DELAY_QUEUE,
-    TIMER_C023_DELAY_QUEUE,
-    TIMER_C024_DELAY_QUEUE,
-    TIMER_C025_DELAY_QUEUE,
-
-    // When extending this, search for EXTEND_CONTROLLER_IDS
-    // in the code to find all places that need to be updated too.
-  };
-
-  static String toString(IntervalTimer_e timer);
-
-  enum class SchedulerTimerType_e {
-    SystemEventQueue       = 0, // Not really a timer.
-    ConstIntervalTimer     = 1,
-    PLUGIN_TIMER_IN_e      = 2, // Called with a previously defined event at a specific time, set via setPluginTaskTimer
-    TaskDeviceTimer        = 3, // Essentially calling PLUGIN_READ
-    GPIO_timer             = 4,
-    PLUGIN_ONLY_TIMER_IN_e = 5, // Similar to PLUGIN_TIMER_IN, addressed to a plugin instead of a task.
-    RulesTimer             = 6,
-    IntendedReboot         = 15 // Used to show intended reboot
-  };
-
-  static const __FlashStringHelper* toString(SchedulerTimerType_e timerType);
-
-
-  enum class PluginPtrType {
-    TaskPlugin,
-    ControllerPlugin,
-    NotificationPlugin
-  };
-
-  static const __FlashStringHelper* toString(PluginPtrType pluginType);
-
-  enum class IntendedRebootReason_e {
-    DeepSleep,
-    DelayedReboot,
-    ResetFactory,
-    ResetFactoryPinActive,
-    ResetFactoryCommand,
-    CommandReboot,
-    RestoreSettings,
-    OTA_error,
-    ConnectionFailuresThreshold,
-  };
-
-  static String toString(IntendedRebootReason_e reason);
 
 
   void          markIntendedReboot(IntendedRebootReason_e reason);
 
+
   /*********************************************************************************************\
   * Generic Timer functions.
   \*********************************************************************************************/
-  void          setNewTimerAt(unsigned long id,
-                              unsigned long timer);
+  void          setNewTimerAt(SchedulerTimerID timerID,
+                              uint32_t timer);
 
-  // Mix timer type int with an ID describing the scheduled job.
-  static unsigned long getMixedId(SchedulerTimerType_e timerType,
-                                  unsigned long        id);
-
-  static unsigned long decodeSchedulerId(unsigned long         mixed_id,
-                                         SchedulerTimerType_e& timerType);
-
-  static String        decodeSchedulerId(unsigned long mixed_id);
+  static String        decodeSchedulerId(SchedulerTimerID timerID);
 
   /*********************************************************************************************\
   * Handle scheduled timers.
@@ -121,33 +107,34 @@ public:
   * These timers set a new scheduled timer, based on the old value.
   * This will make their interval as constant as possible.
   \*********************************************************************************************/
-  void                 setNextTimeInterval(unsigned long     & timer,
-                                           const unsigned long step);
+  void                 setNextTimeInterval(uint32_t     & timer,
+                                           const uint32_t step);
 
-  void                 setIntervalTimer(IntervalTimer_e id);
-  void                 setIntervalTimerAt(IntervalTimer_e id,
-                                          unsigned long   newtimer);
-  void                 setIntervalTimerOverride(IntervalTimer_e id,
-                                                unsigned long   msecFromNow);
+  void                 setNextStrictTimeInterval(uint32_t     & timer,
+                                                 const uint32_t step);
 
-  void                 scheduleNextDelayQueue(IntervalTimer_e id,
-                                              unsigned long   nextTime);
+  void                 setIntervalTimer(SchedulerIntervalTimer_e id);
+  void                 setIntervalTimerAt(SchedulerIntervalTimer_e id,
+                                          uint32_t   newtimer);
+  void                 setIntervalTimerOverride(SchedulerIntervalTimer_e id,
+                                                uint32_t   msecFromNow);
 
-  void                 setIntervalTimer(IntervalTimer_e id,
-                                        unsigned long   lasttimer);
+  void                 scheduleNextDelayQueue(SchedulerIntervalTimer_e id,
+                                              uint32_t   nextTime);
+
+  void                 setIntervalTimer(SchedulerIntervalTimer_e id,
+                                        uint32_t   lasttimer);
 
   void                 sendGratuitousARP_now();
 
-  void                 process_interval_timer(IntervalTimer_e id,
-                                              unsigned long   lasttimer);
+  void                 process_interval_timer(SchedulerTimerID timerID,
+                                              uint32_t   lasttimer);
 
   /*********************************************************************************************\
-  * Plugin Task Timer
+  * Plugin Task Timer  (PLUGIN_TASKTIMER_IN)
+  * Can be scheduled per combo taskIndex & Par1 (20 least significant bits)
   \*********************************************************************************************/
-  static unsigned long createPluginTaskTimerId(deviceIndex_t deviceIndex,
-                                               int           Par1);
-
-  void                 setPluginTaskTimer(unsigned long msecFromNow,
+  void                 setPluginTaskTimer(uint32_t msecFromNow,
                                           taskIndex_t   taskIndex,
                                           int           Par1,
                                           int           Par2 = 0,
@@ -155,38 +142,66 @@ public:
                                           int           Par4 = 0,
                                           int           Par5 = 0);
 
-  void process_plugin_task_timer(unsigned long id);
+void                 setPluginTaskTimer(uint32_t msecFromNow,
+                                          taskIndex_t   taskIndex,
+                                          const PluginFunctions_e& function,
+                                          int           Par1,
+                                          int           Par2 = 0,
+                                          int           Par3 = 0,
+                                          int           Par4 = 0,
+                                          int           Par5 = 0);
+
+  void process_plugin_task_timer(SchedulerTimerID timerID);
+
+  /*********************************************************************************************\
+  * Network Adapter Timer  (NWPLUGIN_TASKTIMER_IN)
+  * Can be scheduled per combo networkIndex & Par1 (20 least significant bits)
+  \*********************************************************************************************/
+  void setNetworkInitTimer(uint32_t msecFromNow,
+                           ESPEasy::net::networkIndex_t   networkIndex);
+  void setNetworkExitTimer(uint32_t msecFromNow,
+                           ESPEasy::net::networkIndex_t   networkIndex);
+
+  void setNetworkTimer(uint32_t msecFromNow,
+                      ESPEasy::net::networkIndex_t   networkIndex,
+                      NWPlugin::Function function,
+                      int           Par1 = 0,
+                      int           Par2 = 0,
+                      int           Par3 = 0,
+                      int           Par4 = 0,
+                      int           Par5 = 0);
+
+  void process_network_timer(SchedulerTimerID timerID);
+
 
 
   /*********************************************************************************************\
   * Rules Timer
   \*********************************************************************************************/
-
-  static unsigned long createRulesTimerId(unsigned int timerIndex);
-
   // Set timer for Rules#Timer events.
   // @param msecFromNow   Number of milli seconds from now (also used as interval for recurring)
   // @param timerIndex    The index of the timer used. (1 ... max)
   // @param recurringCount  Number of times needed to run (-1 for always)
-  bool setRulesTimer(unsigned long msecFromNow,
+  // @param startImmediately  Run immediately
+  bool setRulesTimer(uint32_t msecFromNow,
                      unsigned int  timerIndex,
-                     int           recurringCount = 0);
+                     int           recurringCount = 0,
+                     bool          startImmediately = false);
 
-  void process_rules_timer(unsigned long id,
-                           unsigned long lasttimer);
+  void process_rules_timer(SchedulerTimerID timerID,
+                           uint32_t lasttimer);
 
-  bool pause_rules_timer(unsigned long timerIndex);
+  bool pause_rules_timer(uint32_t timerIndex);
 
-  bool resume_rules_timer(unsigned long timerIndex);
+  bool resume_rules_timer(uint32_t timerIndex);
 
 
   /*********************************************************************************************\
-  * Plugin Timer
+  * Plugin Timer  (PLUGIN_DEVICETIMER_IN)
+  * Does not reflect a specific task, but rather a plugin.
+  * Can be scheduled per combo deviceIndex & Par1 (20 least significant bits)
   \*********************************************************************************************/
-  static unsigned long createPluginTimerId(deviceIndex_t deviceIndex,
-                                           int           Par1);
-
-  void                 setPluginTimer(unsigned long msecFromNow,
+  void                 setPluginTimer(uint32_t msecFromNow,
                                       pluginID_t    pluginID,
                                       int           Par1,
                                       int           Par2 = 0,
@@ -194,27 +209,24 @@ public:
                                       int           Par4 = 0,
                                       int           Par5 = 0);
 
-  void process_plugin_timer(unsigned long id);
+  void process_plugin_timer(SchedulerTimerID timerID);
 
 
   /*********************************************************************************************\
   * GPIO Timer
   * Special timer to handle timed GPIO actions
   \*********************************************************************************************/
-  static unsigned long createGPIOTimerId(uint8_t GPIOType,
-                                         uint8_t pinNumber,
-                                         int     Par1);
-
-
-  void setGPIOTimer(unsigned long msecFromNow,
+  void setGPIOTimer(uint32_t msecFromNow,
                     pluginID_t    pluginID,
-                    int           Par1,
-                    int           Par2 = 0,
-                    int           Par3 = 0,
-                    int           Par4 = 0,
-                    int           Par5 = 0);
+                    int           pinnr,
+                    int           state = 0,
+                    int           repeatInterval = 0,
+                    int           recurringCount = 0,
+                    int           alternateInterval = 0);
 
-  void process_gpio_timer(unsigned long id);
+  void clearGPIOTimer(pluginID_t pluginID, int pinnr);
+
+  void process_gpio_timer(SchedulerTimerID timerID, uint32_t lasttimer);
 
   /*********************************************************************************************\
   * Task Device Timer
@@ -223,21 +235,21 @@ public:
   * When the plugin task is initialized, a call to schedule_task_device_timer_at_init
   * will bootstrap this sequence.
   \*********************************************************************************************/
-  void schedule_task_device_timer_at_init(unsigned long task_index);
+  void schedule_task_device_timer_at_init(uint32_t task_index);
 
   // Typical use case is to run this when all needed connections are made.
   void schedule_all_task_device_timers();
 
   // Schedule a call to SensorSendTask, which calls PLUGIN_READ
-  void schedule_task_device_timer(unsigned long task_index,
-                                  unsigned long runAt);
+  void schedule_task_device_timer(uint32_t task_index,
+                                  uint32_t runAt);
 
   // Reschedule task device timer based on the set task interval.
-  void reschedule_task_device_timer(unsigned long task_index,
-                                    unsigned long lasttimer);
+  void reschedule_task_device_timer(uint32_t task_index,
+                                    uint32_t lasttimer);
 
-  void process_task_device_timer(unsigned long task_index,
-                                 unsigned long lasttimer);
+  void process_task_device_timer(SchedulerTimerID timerID,
+                                 uint32_t lasttimer);
 
   /*********************************************************************************************\
   * System Event Timer
@@ -247,41 +259,47 @@ public:
   \*********************************************************************************************/
 
   // Note: event will be moved
-  void schedule_plugin_task_event_timer(deviceIndex_t        DeviceIndex,
+  void schedule_plugin_task_event_timer(taskIndex_t          taskIndex,
                                         uint8_t              Function,
                                         struct EventStruct&& event);
 
-  void schedule_mqtt_plugin_import_event_timer(deviceIndex_t DeviceIndex,
-                                               taskIndex_t   TaskIndex,
-                                               uint8_t       Function,
-                                               char         *c_topic,
-                                               uint8_t      *b_payload,
-                                               unsigned int  length);
+#if FEATURE_MQTT
+  void schedule_mqtt_plugin_import_event_timer(deviceIndex_t  DeviceIndex,
+                                               taskIndex_t    TaskIndex,
+                                               uint8_t        Function,
+                                               const char    *c_topic,
+                                               const uint8_t *b_payload,
+                                               unsigned int   length);
+#endif
 
 
   // Note: the event will be moved
-  void schedule_controller_event_timer(protocolIndex_t      ProtocolIndex,
+  void schedule_controller_event_timer(controllerIndex_t    ControllerIndex,
                                        uint8_t              Function,
                                        struct EventStruct&& event);
 
-  void schedule_mqtt_controller_event_timer(protocolIndex_t   ProtocolIndex,
+#if FEATURE_MQTT
+  void schedule_mqtt_controller_event_timer(controllerIndex_t ControllerIndex,
                                             CPlugin::Function Function,
-                                            char             *c_topic,
-                                            uint8_t          *b_payload,
+                                            const char       *c_topic,
+                                            const uint8_t    *b_payload,
                                             unsigned int      length);
+#endif
 
   // Note: The event will be moved
+#if FEATURE_NOTIFIER
   void schedule_notification_event_timer(uint8_t              NotificationProtocolIndex,
                                          NPlugin::Function    Function,
                                          struct EventStruct&& event);
+#endif
 
 
-  static unsigned long createSystemEventMixedId(PluginPtrType ptr_type,
-                                                uint8_t       Index,
-                                                uint8_t       Function);
-
+  // Create mixed ID for scheduling a system event to be handled by the scheduler.
+  // ptr_type: Indicating whether it should be handled by controller, plugin or notifier
+  // Index   : DeviceIndex / ProtocolIndex / NotificationProtocolIndex  (thus not the Plugin_ID/CPlugin_ID/NPlugin_ID, saving an extra lookup when processing)
+  // Function: The function to be called for handling the event.
   // Note, the event will be moved
-  void schedule_event_timer(PluginPtrType        ptr_type,
+  void schedule_event_timer(SchedulerPluginPtrType_e        ptr_type,
                             uint8_t              Index,
                             uint8_t              Function,
                             struct EventStruct&& event);
@@ -292,12 +310,13 @@ public:
   /*********************************************************************************************\
   * Statistics
   \*********************************************************************************************/
-
+#ifndef BUILD_NO_DEBUG
   String getQueueStats();
+#endif
 
   void   updateIdleTimeStats();
 
-  float  getIdleTimePct() const;
+  float  getIdleTimePct() ;
 
   void   setEcoMode(bool enabled);
 
@@ -305,14 +324,14 @@ private:
 
   // Map mixed timer ID to system timer struct.
   // N.B. Must use Mixed timer ID, similar to how it is handled in the scheduler.
-  std::map<unsigned long, systemTimerStruct>systemTimers;
+  std::map<uint32_t, systemTimerStruct>systemTimers;
 
   msecTimerHandlerStruct msecTimerHandler;
 
   std::list<EventStructCommandWrapper>ScheduledEventQueue;
 
-  unsigned long last_system_event_run         = 0;
-  unsigned long timer_gratuitous_arp_interval = 5000;
+  uint32_t last_system_event_run         = 0;
+  uint32_t timer_gratuitous_arp_interval = 5000;
 };
 
 #endif // HELPERS_SCHEDULER_H

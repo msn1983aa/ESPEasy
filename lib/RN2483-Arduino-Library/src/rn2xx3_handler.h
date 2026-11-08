@@ -31,6 +31,7 @@ public:
 
   rn2xx3_handler(Stream& serial);
 
+  String sendRawCommand(const __FlashStringHelper* command);
   String sendRawCommand(const String& command);
 
   bool   prepare_raw_command(const String& command);
@@ -45,12 +46,12 @@ public:
   RN_state async_loop();
 
   // Wait for the command to be handled completely (including reply in RX2 window)
-  RN_state wait_command_finished(unsigned long timeout = 10000);
+  RN_state wait_command_finished(uint32_t timeout = 10000);
 
   // Shorter wait, to be used in async mode.
   // This will return early when the message cannot be sent (e.g. due to duty cycle exceeded)
   // It will return when the state waiting for reply_received_rx2 has been reached, or the command has finished (due to error)
-  RN_state wait_command_accepted(unsigned long timeout = 10000);
+  RN_state wait_command_accepted(uint32_t timeout = 10000);
 
   // Check whether a command has finished.
   bool     command_finished() const;
@@ -113,6 +114,12 @@ public:
                 uint8_t *DevEui);
 
 
+  RN2xx3_datatypes::TX_return_type txCommand(const __FlashStringHelper* command, 
+                                             const String& data, 
+                                             bool shouldEncode, 
+                                             uint8_t port);
+
+
   RN2xx3_datatypes::TX_return_type txCommand(const String&,
                                              const String&,
                                              bool,
@@ -154,7 +161,7 @@ public:
     return _moduleType;
   }
 
-  bool setFrequencyPlan(RN2xx3_datatypes::Freq_plan fp);
+  bool setFrequencyPlan(RN2xx3_datatypes::Freq_plan fp, uint32_t rx2_freq = 0);
 
   bool setTTNstack(RN2xx3_datatypes::TTN_stack_version version);
 
@@ -168,7 +175,7 @@ public:
   // Get the received data
   const String& get_received_data() const;
 
-  const String& get_received_data(unsigned long& duration) const;
+  const String& get_received_data(uint32_t& duration) const;
 
   // Get the downlink message, received during RX2 after TX command.
   const String& get_rx_message() const;
@@ -180,6 +187,7 @@ public:
   String        getLastError();
 
   // Set specific error string.
+  void          setLastError(const __FlashStringHelper* error);
   void          setLastError(const String& error);
 
   RN_state      get_state() const;
@@ -213,7 +221,7 @@ private:
   // read all available data from serial until '\n'
   bool                    read_line();
 
-  void                    set_timeout(unsigned long timeout);
+  void                    set_timeout(uint32_t timeout);
 
   bool                    time_out_reached() const;
 
@@ -251,9 +259,9 @@ private:
   String _sendData;                  // Complete command to send to the module
   String _rxMessenge;                // Message received (during RX2 window) after a TX
   String _lastError;                 // Last error message received from module (or set by user)
-  unsigned long _start_prep  = 0;    // timestamp of preparing command
-  unsigned long _start       = 0;    // timestamp of last set timeout
-  unsigned long _timeout     = 100;  // timeout duration
+  uint32_t _start_prep  = 0;    // timestamp of preparing command
+  uint32_t _start       = 0;    // timestamp of last set timeout
+  uint32_t _timeout     = 100;  // timeout duration
   uint32_t _rxdelay1         = 5000; // delay from last moment of sending to receive RX1 window
   uint32_t _rxdelay2         = 6000; // delay from last moment of sending to receive RX2 window
   uint8_t _busy_count        = 0;    // Number of times the module replied with "busy"
@@ -268,6 +276,7 @@ private:
   RN2xx3_datatypes::Firmware _firmware = RN2xx3_datatypes::Firmware::unknown;
   RN2xx3_datatypes::Model _moduleType = RN2xx3_datatypes::Model::RN_NA;
   RN2xx3_datatypes::Freq_plan _fp     = RN2xx3_datatypes::Freq_plan::TTN_EU;
+  uint32_t _rx2_frequency             = 0;
   uint8_t _sf                         = 7;
   uint8_t _dr                         = 5;
 
@@ -282,20 +291,29 @@ public:
 
   // Convenience functions
 
+  int  readIntValue(const __FlashStringHelper* command);
   int  readIntValue(const String& command);
 
+
+  bool readUIntMacGet(const __FlashStringHelper* param,
+                      uint32_t    & value);
   bool readUIntMacGet(const String& param,
                       uint32_t    & value);
 
   // All "mac set ..." commands return either "ok" or "invalid_param"
+  bool sendMacSet(const __FlashStringHelper* param,
+                  const String& value);
   bool sendMacSet(const String& param,
                   const String& value);
-  bool sendMacSetEnabled(const String& param,
+  bool sendMacSetEnabled(const __FlashStringHelper* param,
                          bool          enabled);
   bool sendMacSetCh(const String& param,
                     unsigned int  channel,
                     const String& value);
   bool sendMacSetCh(const String& param,
+                    unsigned int  channel,
+                    uint32_t      value);
+  bool sendMacSetCh(const __FlashStringHelper* param,
                     unsigned int  channel,
                     uint32_t      value);
   bool setChannelDutyCycle(unsigned int channel,

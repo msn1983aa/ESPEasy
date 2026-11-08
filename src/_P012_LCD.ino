@@ -9,6 +9,11 @@
 // #################################### Plugin 012: LCD ##################################################
 // #######################################################################################################
 
+/** Changelog:
+ * 2023-12-26 tonhuisman: Clear the splash from the display after 5 seconds if not already overwritten
+ * 2023-03-07 tonhuisman: Parse text to display without trimming off leading and trailing spaces
+ * 2023-03: First changelog added, older changes not logged
+ */
 
 // Sample templates
 //  Temp: [DHT11#Temperature]   Hum:[DHT11#humidity]
@@ -40,16 +45,11 @@ boolean Plugin_012(uint8_t function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
     {
-      Device[++deviceCount].Number           = PLUGIN_ID_012;
-      Device[deviceCount].Type               = DEVICE_TYPE_I2C;
-      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_NONE;
-      Device[deviceCount].Ports              = 0;
-      Device[deviceCount].PullUpOption       = false;
-      Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].FormulaOption      = false;
-      Device[deviceCount].ValueCount         = 0;
-      Device[deviceCount].SendDataOption     = false;
-      Device[deviceCount].TimerOption        = true;
+      auto& dev = Device[++deviceCount];
+      dev.Number      = PLUGIN_ID_012;
+      dev.Type        = DEVICE_TYPE_I2C;
+      dev.VType       = Sensor_VType::SENSOR_TYPE_NONE;
+      dev.TimerOption = true;
       break;
     }
 
@@ -68,50 +68,66 @@ boolean Plugin_012(uint8_t function, struct EventStruct *event, String& string)
     case PLUGIN_I2C_HAS_ADDRESS:
     case PLUGIN_WEBFORM_SHOW_I2C_PARAMS:
     {
-      const int i2cAddressValues[] = { 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f };
+      const uint8_t i2cAddressValues[] = { 0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27, 0x38, 0x39, 0x3a, 0x3b, 0x3c, 0x3d, 0x3e, 0x3f };
+      constexpr size_t optionCount     = NR_ELEMENTS(i2cAddressValues);
+
       if (function == PLUGIN_WEBFORM_SHOW_I2C_PARAMS) {
-        addFormSelectorI2C(F("i2c_addr"), 16, i2cAddressValues, P012_I2C_ADDR);
+        addFormSelectorI2C(F("i2c_addr"), optionCount, i2cAddressValues, P012_I2C_ADDR);
       } else {
-        success = intArrayContains(16, i2cAddressValues, event->Par1);
+        success = intArrayContains(optionCount, i2cAddressValues, event->Par1);
       }
       break;
     }
 
+    # if FEATURE_I2C_GET_ADDRESS
+    case PLUGIN_I2C_GET_ADDRESS:
+    {
+      event->Par1 = P012_I2C_ADDR;
+      success     = true;
+      break;
+    }
+    # endif // if FEATURE_I2C_GET_ADDRESS
+
     case PLUGIN_WEBFORM_LOAD:
     {
       {
-        uint8_t   choice2 = P012_SIZE;
-        const __FlashStringHelper * options2[2];
-        options2[0] = F("2 x 16");
-        options2[1] = F("4 x 20");
-        int optionValues2[2] = { 1, 2 };
-        addFormSelector(F("Display Size"), F("p012_size"), 2, options2, optionValues2, choice2);
+        const __FlashStringHelper *options2[] = {
+          F("2 x 16"),
+          F("4 x 20"),
+        };
+        const int optionValues2[2]   = { 1, 2 };
+        constexpr size_t optionCount = NR_ELEMENTS(optionValues2);
+        const FormSelectorOptions selector(optionCount, options2, optionValues2);
+        selector.addFormSelector(F("Display Size"), F("psize"), P012_SIZE);
       }
 
       {
         String strings[P12_Nlines];
         LoadCustomTaskSettings(event->TaskIndex, strings, P12_Nlines, P12_Nchars);
 
-        for (uint8_t varNr = 0; varNr < P12_Nlines; varNr++)
+        for (int varNr = 0; varNr < P12_Nlines; varNr++)
         {
-          addFormTextBox(String(F("Line ")) + (varNr + 1), getPluginCustomArgName(varNr), strings[varNr], P12_Nchars);
+          addFormTextBox(concat(F("Line "), varNr + 1), getPluginCustomArgName(varNr), strings[varNr], P12_Nchars);
         }
       }
 
       addRowLabel(F("Display button"));
       addPinSelect(PinSelectPurpose::Generic_input, F("taskdevicepin3"), CONFIG_PIN3);
 
-      addFormCheckBox(F("Inversed logic"), F("p012_inversed_btn"), P012_INVERSE_BTN == 1, false);
+      addFormCheckBox(F("Inversed logic"), F("pinv_btn"), P012_INVERSE_BTN == 1, false);
 
-      addFormNumericBox(F("Display Timeout"), F("p012_timer"), P012_TIMER);
+      addFormNumericBox(F("Display Timeout"), F("ptimer"), P012_TIMER);
 
       {
-        const __FlashStringHelper * options3[3];
-        options3[0] = F("Continue to next line (as in v1.4)");
-        options3[1] = F("Truncate exceeding message");
-        options3[2] = F("Clear then truncate exceeding message");
-        int optionValues3[3] = { 0, 1, 2 };
-        addFormSelector(F("LCD command Mode"), F("p012_mode"), 3, options3, optionValues3, P012_MODE);
+        const __FlashStringHelper *options3[] {
+          F("Continue to next line (as in v1.4)"),
+          F("Truncate exceeding message"),
+          F("Clear then truncate exceeding message"),
+        };
+        const int optionValues3[]    = { 0, 1, 2 };
+        constexpr size_t optionCount = NR_ELEMENTS(optionValues3);
+        const FormSelectorOptions selector(optionCount, options3, optionValues3);
+        selector.addFormSelector(F("LCD command Mode"), F("pmode"), P012_MODE);
       }
 
       success = true;
@@ -121,13 +137,13 @@ boolean Plugin_012(uint8_t function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_SAVE:
     {
       P012_I2C_ADDR    = getFormItemInt(F("i2c_addr"));
-      P012_SIZE        = getFormItemInt(F("p012_size"));
-      P012_TIMER       = getFormItemInt(F("p012_timer"));
-      P012_MODE        = getFormItemInt(F("p012_mode"));
-      P012_INVERSE_BTN = isFormItemChecked(F("p012_inversed_btn")) ? 1 : 0;
+      P012_SIZE        = getFormItemInt(F("psize"));
+      P012_TIMER       = getFormItemInt(F("ptimer"));
+      P012_MODE        = getFormItemInt(F("pmode"));
+      P012_INVERSE_BTN = isFormItemChecked(F("pinv_btn")) ? 1 : 0;
 
       // FIXME TD-er: This is a huge stack allocated object.
-      char   deviceTemplate[P12_Nlines][P12_Nchars];
+      char   deviceTemplate[P12_Nlines][P12_Nchars] = {};
       String error;
 
       for (uint8_t varNr = 0; varNr < P12_Nlines; varNr++)
@@ -140,7 +156,7 @@ boolean Plugin_012(uint8_t function, struct EventStruct *event, String& string)
       if (error.length() > 0) {
         addHtmlError(error);
       }
-      SaveCustomTaskSettings(event->TaskIndex, (uint8_t *)&deviceTemplate, sizeof(deviceTemplate));
+      SaveCustomTaskSettings(event->TaskIndex, reinterpret_cast<const uint8_t *>(&deviceTemplate), sizeof(deviceTemplate));
       success = true;
       break;
     }
@@ -151,20 +167,21 @@ boolean Plugin_012(uint8_t function, struct EventStruct *event, String& string)
       P012_data_struct *P012_data =
         static_cast<P012_data_struct *>(getPluginTaskData(event->TaskIndex));
 
-      if (nullptr == P012_data) {
-        break;
+      if (nullptr != P012_data) {
+        P012_data->init();
+
+        if (validGpio(CONFIG_PIN3)) {
+          pinMode(CONFIG_PIN3, INPUT_PULLUP);
+        }
+        success = true;
       }
 
-      if (CONFIG_PIN3 != -1) {
-        pinMode(CONFIG_PIN3, INPUT_PULLUP);
-      }
-      success = true;
       break;
     }
 
     case PLUGIN_TEN_PER_SECOND:
     {
-      if (CONFIG_PIN3 != -1)
+      if (validGpio(CONFIG_PIN3))
       {
         if (digitalRead(CONFIG_PIN3) == P012_INVERSE_BTN)
         {
@@ -198,7 +215,20 @@ boolean Plugin_012(uint8_t function, struct EventStruct *event, String& string)
       if (nullptr != P012_data) {
         // FIXME TD-er: This is a huge stack allocated object.
         char deviceTemplate[P12_Nlines][P12_Nchars];
-        LoadCustomTaskSettings(event->TaskIndex, (uint8_t *)&deviceTemplate, sizeof(deviceTemplate));
+        LoadCustomTaskSettings(event->TaskIndex, reinterpret_cast<uint8_t *>(&deviceTemplate), sizeof(deviceTemplate));
+
+        switch (P012_data->splashState) {
+          case P012_splashState_e::SplashCleared:
+            // Most common route
+            break;
+          case P012_splashState_e::SplashInitial:
+            P012_data->splashState = P012_splashState_e::SplashTimerRunning;
+            Scheduler.schedule_task_device_timer(event->TaskIndex, millis() + 5000);
+            break;
+          case P012_splashState_e::SplashTimerRunning:
+            P012_data->lcdWrite(F("        "), 0, 0); // Wipe 'ESP Easy' splash text, will reset splashState
+            break;
+        }
 
         for (uint8_t x = 0; x < P012_data->Plugin_012_rows; x++)
         {
@@ -223,27 +253,28 @@ boolean Plugin_012(uint8_t function, struct EventStruct *event, String& string)
       if (nullptr != P012_data) {
         String cmd = parseString(string, 1);
 
-        if (cmd.equalsIgnoreCase(F("LCDCMD")))
+        if (equals(cmd, F("lcdcmd")))
         {
           success = true;
           String arg1 = parseString(string, 2);
 
-          if (arg1.equalsIgnoreCase(F("Off"))) {
+          if (equals(arg1, F("off"))) {
             P012_data->lcd.noBacklight();
           }
-          else if (arg1.equalsIgnoreCase(F("On"))) {
+          else if (equals(arg1, F("on"))) {
             P012_data->lcd.backlight();
           }
-          else if (arg1.equalsIgnoreCase(F("Clear"))) {
+          else if (equals(arg1, F("clear"))) {
             P012_data->lcd.clear();
+            P012_data->splashState = P012_splashState_e::SplashCleared;
           }
         }
-        else if (cmd.equalsIgnoreCase(F("LCD")))
+        else if (equals(cmd, F("lcd")))
         {
           success = true;
           int colPos  = event->Par2 - 1;
           int rowPos  = event->Par1 - 1;
-          String text = parseStringKeepCase(string, 4);
+          String text = parseStringKeepCaseNoTrim(string, 4);
           text = P012_data->P012_parseTemplate(text, P012_data->Plugin_012_cols);
 
           P012_data->lcdWrite(text, colPos, rowPos);
@@ -254,7 +285,5 @@ boolean Plugin_012(uint8_t function, struct EventStruct *event, String& string)
   }
   return success;
 }
-
-
 
 #endif // USES_P012

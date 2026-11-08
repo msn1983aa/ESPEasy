@@ -14,6 +14,12 @@ Plugin based events
 
 Besides the internal events there's also plugin specific events. These are listed here below.
 
+P000 (core) :ref:`P000_Buzzer_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: ../Plugin/P001_events_RTTTL.repl
+
+
 .. P001 :ref:`P001_page`
 .. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -224,16 +230,16 @@ Besides the internal events there's also plugin specific events. These are liste
 .. .. include:: ../Plugin/P035_events.repl
 
 
-.. P036 :ref:`P036_page`
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+P036 :ref:`P036_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. .. include:: ../Plugin/P036_events.repl
+.. include:: ../Plugin/P036_events.repl
 
 
-.. P037 :ref:`P037_page`
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+P037 :ref:`P037_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. .. include:: ../Plugin/P037_events.repl
+.. include:: ../Plugin/P037_events.repl
 
 
 .. P038 :ref:`P038_page`
@@ -266,10 +272,10 @@ Besides the internal events there's also plugin specific events. These are liste
 .. .. include:: ../Plugin/P042_events.repl
 
 
-.. P043 :ref:`P043_page`
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+P043 :ref:`P043_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. .. include:: ../Plugin/P043_events.repl
+.. include:: ../Plugin/P043_events.repl
 
 
 .. P044 :ref:`P044_page`
@@ -326,10 +332,10 @@ Besides the internal events there's also plugin specific events. These are liste
 .. .. include:: ../Plugin/P052_events.repl
 
 
-.. P053 :ref:`P053_page`
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+P053 :ref:`P053_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. .. include:: ../Plugin/P053_events.repl
+.. include:: ../Plugin/P053_events.repl
 
 
 .. P054 :ref:`P054_page`
@@ -392,10 +398,10 @@ Besides the internal events there's also plugin specific events. These are liste
 .. .. include:: ../Plugin/P063_events.repl
 
 
-.. P064 :ref:`P064_page`
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+P064 :ref:`P064_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. .. include:: ../Plugin/P064_events.repl
+.. include:: ../Plugin/P064_events.repl
 
 
 .. P065 :ref:`P065_page`
@@ -488,10 +494,10 @@ Besides the internal events there's also plugin specific events. These are liste
 .. .. include:: ../Plugin/P079_events.repl
 
 
-.. P080 :ref:`P080_page`
-.. ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+P080 :ref:`P080_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-.. .. include:: ../Plugin/P080_events.repl
+.. include:: ../Plugin/P080_events.repl
 
 
 P081 :ref:`P081_page`
@@ -513,6 +519,12 @@ P097 :ref:`P097_page`
 .. include:: ../Plugin/P097_events.repl
 
 
+P098 :ref:`P098_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: ../Plugin/P098_events.repl
+
+
 P099 :ref:`P099_page`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -522,3 +534,38 @@ P115 :ref:`P115_page`
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. include:: ../Plugin/P115_events.repl
+
+P123 :ref:`P123_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: ../Plugin/P123_events.repl
+
+P129 :ref:`P129_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: ../Plugin/P129_events.repl
+
+P138 :ref:`P138_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: ../Plugin/P138_events.repl
+
+P139 :ref:`P139_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: ../Plugin/P139_events.repl
+
+P143 :ref:`P143_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: ../Plugin/P143_events.repl
+
+P170 :ref:`P170_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: ../Plugin/P170_events.repl
+
+P175 :ref:`P175_page`
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. include:: ../Plugin/P053_events.repl

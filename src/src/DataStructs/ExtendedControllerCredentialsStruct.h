@@ -1,5 +1,5 @@
-#ifndef DATASTRUCTS_EXTENDED_SECURITYSTRUCT_H
-#define DATASTRUCTS_EXTENDED_SECURITYSTRUCT_H
+#ifndef DATASTRUCTS_EXTENDED_CONTROLLERCREDENTIALSSTRUCT_H
+#define DATASTRUCTS_EXTENDED_CONTROLLERCREDENTIALSSTRUCT_H
 
 #include "../../ESPEasy_common.h"
 #include "../CustomBuild/ESPEasyLimits.h"
@@ -13,6 +13,12 @@ struct ExtendedControllerCredentialsStruct
 {
   ExtendedControllerCredentialsStruct();
 
+  // Compute checksum of the data.
+  // @retval true when checksum matches
+  bool validateChecksum() const;
+
+  void clear();
+
   String load();
   String save() const;
 
@@ -22,14 +28,13 @@ struct ExtendedControllerCredentialsStruct
   void setControllerUser(controllerIndex_t controller_idx, const String& user);
   void setControllerPass(controllerIndex_t controller_idx, const String& pass);
 
-  private:
+private:
 
-  String _strings[CONTROLLER_MAX * 2];
-
+  String _strings[CONTROLLER_MAX * 2]{};
 
   // TODO TD-er: Add extra WiFi credentials
 };
 
 
 
-#endif // DATASTRUCTS_EXTENDED_SECURITYSTRUCT_H
+#endif // DATASTRUCTS_EXTENDED_CONTROLLERCREDENTIALSSTRUCT_H

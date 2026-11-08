@@ -84,16 +84,10 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
 
   switch (function) {
     case PLUGIN_DEVICE_ADD: {
-      Device[++deviceCount].Number           = PLUGIN_ID_079;
-      Device[deviceCount].Type               = DEVICE_TYPE_I2C;
-      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_NONE;
-      Device[deviceCount].Ports              = 0;
-      Device[deviceCount].PullUpOption       = false;
-      Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].FormulaOption      = false;
-      Device[deviceCount].ValueCount         = 0;
-      Device[deviceCount].SendDataOption     = false;
-      Device[deviceCount].TimerOption        = false;
+      auto& dev = Device[++deviceCount];
+      dev.Number   = PLUGIN_ID_079;
+      dev.Type     = DEVICE_TYPE_I2C;
+      dev.VType    = Sensor_VType::SENSOR_TYPE_NONE;
       break;
     }
 
@@ -109,7 +103,8 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
 
     case PLUGIN_SET_DEFAULTS:
     {
-      I2C_ADDR_PCFG_P079 = DEF_I2C_ADDRESS_079;
+      I2C_ADDR_PCFG_P079   = DEF_I2C_ADDRESS_079;
+      SHIELD_VER_PCFG_P079 = static_cast<int>(P079_BoardType::WemosMotorshield);
       break;
     }
 
@@ -118,38 +113,38 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
       if ((I2C_ADDR_PCFG_P079 < 0x01) || (I2C_ADDR_PCFG_P079 > 0x7f)) { // Validate I2C Addr.
         I2C_ADDR_PCFG_P079 = DEF_I2C_ADDRESS_079;
       }
-      String i2c_addres_string = formatToHex(I2C_ADDR_PCFG_P079);
-      addFormTextBox(F("I2C Address (Hex)"), F("i2c_addr"), i2c_addres_string, 4);
-
-      // Validate Shield Type.
-      bool valid = false;
-
-      switch (Plugin_079_MotorShield_type) {
-        case P079_BoardType::WemosMotorshield:
-        case P079_BoardType::LolinMotorshield:
-          valid = true;
-          break;
-
-          // TD-er: Do not use defaul: here, as the compiler can now warn if we're missing a newly added option
-      }
-
-      if (!valid) {
-        SHIELD_VER_PCFG_P079 = static_cast<int>(P079_BoardType::WemosMotorshield);
-      }
-
+      addFormTextBox(F("I2C Address (Hex)"), F("i2c_addr"), formatToHex(I2C_ADDR_PCFG_P079), 4);
 
       {
-        const __FlashStringHelper * options[] = { F("WEMOS V1.0"), F("LOLIN V2.0") };
-        int indices[]          = { static_cast<int>(P079_BoardType::WemosMotorshield), static_cast<int>(P079_BoardType::LolinMotorshield) };
-        addFormSelector(F("Motor Shield Type"), F("p079_shield_type"), 2, options, indices, SHIELD_VER_PCFG_P079);
+        const __FlashStringHelper *options[] = {
+          F("WEMOS V1.0"),
+          F("LOLIN V2.0")
+        };
+        const int indices[] = {
+          static_cast<int>(P079_BoardType::WemosMotorshield),
+          static_cast<int>(P079_BoardType::LolinMotorshield)
+        };
+        constexpr size_t optionCount = NR_ELEMENTS(indices);
+        const FormSelectorOptions selector(optionCount, options, indices);
+        selector.addFormSelector(F("Motor Shield Type"), F("shield_type"), SHIELD_VER_PCFG_P079);
       }
 
       if (Plugin_079_MotorShield_type == P079_BoardType::WemosMotorshield) {
-        addFormNote(F("WEMOS V1.0 Motor Shield requires updated firmware, see <a href='https://www.letscontrolit.com/wiki/index.php?title=WemosMotorshield'>wiki</a>"));
+        addFormNote(F("WEMOS V1.0 Motor Shield requires updated firmware, "
+                      "see <a href='https://www.letscontrolit.com/wiki/index.php?title=WemosMotorshield'>wiki</a>"));
       }
 
       break;
     }
+
+    # if FEATURE_I2C_GET_ADDRESS
+    case PLUGIN_I2C_GET_ADDRESS:
+    {
+      event->Par1 = I2C_ADDR_PCFG_P079;
+      success     = true;
+      break;
+    }
+    # endif // if FEATURE_I2C_GET_ADDRESS
 
     case PLUGIN_WEBFORM_LOAD: {
       success = true;
@@ -159,32 +154,18 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_SAVE: {
       String i2c_address = webArg(F("i2c_addr"));
       I2C_ADDR_PCFG_P079   = (int)strtol(i2c_address.c_str(), 0, 16);
-      SHIELD_VER_PCFG_P079 = getFormItemInt(F("p079_shield_type"));
+      SHIELD_VER_PCFG_P079 = getFormItemInt(F("shield_type"));
 
-      // Validate Shield Type.
-      bool valid = false;
-
-      switch (Plugin_079_MotorShield_type) {
-        case P079_BoardType::WemosMotorshield:
-        case P079_BoardType::LolinMotorshield:
-          valid = true;
-          break;
-
-          // TD-er: Do not use defaul: here, as the compiler can now warn if we're missing a newly added option
-      }
-
-      if (!valid) {
-        SHIELD_VER_PCFG_P079 = static_cast<int>(P079_BoardType::WemosMotorshield);
-      }
-
-
-      if (getTaskDeviceName(event->TaskIndex).isEmpty()) {                    // Check to see if user entered device name.
+      // Check to see if user entered device name.
+      if (getTaskDeviceName(event->TaskIndex).isEmpty()) {
         switch (Plugin_079_MotorShield_type) {
           case P079_BoardType::WemosMotorshield:
-            safe_strncpy(ExtraTaskSettings.TaskDeviceName, F(PLUGIN_DEF_NAME1_079), sizeof(ExtraTaskSettings.TaskDeviceName)); // Name missing, populate default name.
+            // Name missing, populate default name.
+            safe_strncpy(ExtraTaskSettings.TaskDeviceName, F(PLUGIN_DEF_NAME1_079), sizeof(ExtraTaskSettings.TaskDeviceName));
             break;
           case P079_BoardType::LolinMotorshield:
-            safe_strncpy(ExtraTaskSettings.TaskDeviceName, F(PLUGIN_DEF_NAME2_079), sizeof(ExtraTaskSettings.TaskDeviceName)); // Name missing, populate default name.
+            // Name missing, populate default name.
+            safe_strncpy(ExtraTaskSettings.TaskDeviceName, F(PLUGIN_DEF_NAME2_079), sizeof(ExtraTaskSettings.TaskDeviceName));
             break;
         }
       }
@@ -194,6 +175,7 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
     }
 
     case PLUGIN_INIT: {
+      // FIXME: This validation seems to be redundant...
       // Validate Shield Type.
       bool valid = false;
 
@@ -203,7 +185,7 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
           valid = true;
           break;
 
-          // TD-er: Do not use defaul: here, as the compiler can now warn if we're missing a newly added option
+          // TD-er: Do not use default here, as the compiler can now warn if we're missing a newly added option
       }
 
       if (!valid) {
@@ -220,12 +202,16 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
     }
 
     case PLUGIN_WRITE: {
+      # if FEATURE_I2C_DEVICE_CHECK
 
-      uint8_t   parse_error = false;
-      String tmpString   = string;
-      String ModeStr;
+      if (!I2C_deviceCheck(I2C_ADDR_PCFG_P079, event->TaskIndex, 10, PLUGIN_I2C_GET_ADDRESS)) {
+        break; // Will return the default false for success
+      }
+      # endif // if FEATURE_I2C_DEVICE_CHECK
+      uint8_t parse_error = false;
+      String  ModeStr;
 
-      String cmd = parseString(tmpString, 1);
+      String cmd = parseString(string, 1);
 
       if (cmd.equalsIgnoreCase(F(CMD_NAME_WEMOS)) || cmd.equalsIgnoreCase(F(CMD_NAME_LOLIN))) {
         switch (Plugin_079_MotorShield_type) {
@@ -238,18 +224,18 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
         }
         ModeStr += F(" MotorShield");
 
-        String paramMotor     = parseString(tmpString, 2); // Motor 0 or 1
-        String paramDirection = parseString(tmpString, 3); // Direction, Forward/Backward/Stop
-        String paramSpeed     = parseString(tmpString, 4); // Speed, 0-100
+        String paramMotor     = parseString(string, 2); // Motor 0 or 1
+        String paramDirection = parseString(string, 3); // Direction, Forward/Backward/Stop
+        String paramSpeed     = parseString(string, 4); // Speed, 0-100
 
         if ((paramMotor.isEmpty()) && (paramDirection.isEmpty()) && (paramSpeed.isEmpty())) {
           switch (Plugin_079_MotorShield_type) {
             case P079_BoardType::WemosMotorshield:
-            # ifdef VERBOSE_P079
+              # ifdef VERBOSE_P079
               ModeStr += F(": Unknown CMD");
-            # else // ifdef VERBOSE_P079
+              # else // ifdef VERBOSE_P079
               ModeStr += F(": ?");
-            # endif // ifdef VERBOSE_P079
+              # endif // ifdef VERBOSE_P079
               break;
             case P079_BoardType::LolinMotorshield:
             {
@@ -270,10 +256,10 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
           }
           addLog(LOG_LEVEL_INFO, ModeStr);
           SendStatus(event, ModeStr + F(" <br>")); // Reply (echo) to sender. This will print message on browser.
-          return true;                                             // Exit now. Info Log shows Lolin Info.
+          return true;                             // Exit now. Info Log shows Lolin Info.
         }
         else {
-          if ((paramMotor == F("0")) || (paramMotor == F("1"))) {
+          if ((equals(paramMotor, '0')) || (equals(paramMotor, '1'))) {
             motor_number = paramMotor.toInt();
           }
           else {
@@ -284,19 +270,19 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
             parse_error  = true;
           }
 
-          if (paramDirection.equalsIgnoreCase(F("Stop"))) {
+          if (equals(paramDirection, F("stop"))) {
             motor_dir = MOTOR_STATES::MOTOR_STOP;
           }
-          else if (paramDirection.equalsIgnoreCase(F("Forward"))) {
+          else if (equals(paramDirection, F("forward"))) {
             motor_dir = MOTOR_STATES::MOTOR_FWD;
           }
-          else if ((paramDirection.equalsIgnoreCase(F("Backward")))) {
+          else if (equals(paramDirection, F("backward"))) {
             motor_dir = MOTOR_STATES::MOTOR_REV;
           }
-          else if (paramDirection.equalsIgnoreCase(F("Standby"))) {
+          else if (equals(paramDirection, F("standby"))) {
             motor_dir = MOTOR_STATES::MOTOR_STBY;
           }
-          else if (paramDirection.equalsIgnoreCase(F("Brake"))) {
+          else if (equals(paramDirection, F("brake"))) {
             motor_dir = MOTOR_STATES::MOTOR_BRAKE;
           }
           else {
@@ -325,7 +311,7 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
             if ((motor_speed < 0) || (motor_speed > 100)) {
               motor_speed = 100;
               # ifdef VERBOSE_P079
-              addLog(LOG_LEVEL_INFO, ModeStr + F(": Warning, invalid speed: Now using 100"));
+              addLog(LOG_LEVEL_INFO, strformat(F("%s: Warning, invalid speed: Now using 100"), ModeStr));
               # endif // ifdef VERBOSE_P079
             }
           }
@@ -334,8 +320,8 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
         if (parse_error == true) {
           String ErrorStr = ModeStr;
           ErrorStr += F(": CMD Syntax Error");
-          addLog(LOG_LEVEL_INFO, ErrorStr);
           SendStatus(event, ErrorStr + F(" <br>")); // Reply (echo) to sender. This will print message on browser.
+          addLogMove(LOG_LEVEL_INFO, ErrorStr);
         }
         else {
           switch (motor_dir) {
@@ -351,6 +337,7 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
           switch (Plugin_079_MotorShield_type) {
             case P079_BoardType::WemosMotorshield: {
               WemosMotor Wemos(I2C_ADDR_PCFG_P079, motor_number, MOTOR_FREQ_P079);
+              Wemos.init();
 
               switch (motor_dir) {
                 case MOTOR_STATES::MOTOR_FWD:
@@ -400,18 +387,14 @@ boolean Plugin_079(uint8_t function, struct EventStruct *event, String& string)
             }
           }
         }
+#ifndef BUILD_NO_DEBUG
         if (loglevelActiveFor(LOG_LEVEL_INFO)) {
-          ModeStr += F(": Addr=");
-          ModeStr += formatToHex(I2C_ADDR_PCFG_P079);
-          ModeStr += F(": Mtr=");
-          ModeStr += paramMotor;
-          ModeStr += F(", Dir=");
-          ModeStr += paramDirection;
-          ModeStr += F(", Spd=");
-          ModeStr += paramSpeed;
-          addLog(LOG_LEVEL_INFO, ModeStr);          
+          addLog(LOG_LEVEL_INFO,
+                 strformat(F("%s: Addr=0x%02x: Mtr=%s, Dir=%s, Spd=%s"),
+                           ModeStr.c_str(), I2C_ADDR_PCFG_P079, paramMotor.c_str(),
+                           paramDirection.c_str(), paramSpeed.c_str()));
         }
-
+#endif
         success = true;
       }
       break;

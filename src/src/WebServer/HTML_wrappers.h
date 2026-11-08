@@ -12,6 +12,7 @@ void wrap_html_tag(const __FlashStringHelper * tag, const String& text);
 void wrap_html_tag(const String& tag, const String& text);
 void wrap_html_tag(char tag, const String& text);
 
+void html_B(const __FlashStringHelper * text);
 void html_B(const String& text);
 
 void html_I(const String& text);
@@ -30,8 +31,10 @@ void html_TR_TD_height(int height);
 
 void html_TD();
 
-void html_TD(int td_cnt);
+void html_TD(const __FlashStringHelper * style);
 
+void html_TD(int td_cnt);
+#ifdef WEBSERVER_GITHUB_COPY
 extern int copyTextCounter;
 
 void html_reset_copyTextCounter();
@@ -40,6 +43,7 @@ void html_copyText_TD();
 
 // Add some recognizable token to show which parts will be copied.
 void html_copyText_marker();
+#endif
 
 void html_add_estimate_symbol();
 
@@ -89,10 +93,22 @@ void html_add_wide_button_prefix(const String& classes, bool enabled);
 
 void html_add_form();
 
+void html_add_JQuery_script(const __FlashStringHelper * url);
+void html_add_JQuery_script();
+#if FEATURE_CHART_JS
+void html_add_ChartJS_script();
+#endif // if FEATURE_CHART_JS
+
+#if FEATURE_RULES_EASY_COLOR_CODE
+void html_add_Easy_color_code_script();
+#endif
+
 void html_add_autosubmit_form();
 
 void html_add_script(const __FlashStringHelper * script, bool defer);
 void html_add_script(const String& script, bool defer);
+
+void html_add_script_arg(const __FlashStringHelper * script_arg, bool defer);
 
 void html_add_script(bool defer);
 
@@ -102,15 +118,44 @@ void html_add_script_end();
 void addHtmlError(const __FlashStringHelper * error);
 void addHtmlError(const String& error);
 
-void addHtml(const char& html);
+void addHtml(const char& char1);
+// Convenience function to send 2 chars without the need to use flash strings.
+void addHtml(const char& char1, const char& char2);
 void addHtml(const __FlashStringHelper * html);
 void addHtml(const String& html);
+// Add text wrapped in <pre> ... </pre>  (monospaced formatted)
+void addHtml_pre(const String& html);
+void addHtml(String&& html);
+void addHtmlInt(int8_t int_val);
+void addHtmlInt(int16_t int_val);
+void addHtmlInt(uint8_t int_val);
+
+// FIXME TD-er: ESP_IDF 5.1 for all non-RISC-V treat int as different from int32_t
+// See: esp32x_fixes.h
+#if ESP_IDF_VERSION_MAJOR >= 5
+#ifndef __riscv
 void addHtmlInt(int int_val);
+void addHtmlInt(unsigned int int_val);
+#endif
+#endif
+void addHtmlInt(int32_t int_val);
+void addHtmlInt(uint32_t int_val);
+void addHtmlInt(int64_t int_val);
+void addHtmlInt(uint64_t int_val);
+void addHtmlFloat(const float& value, uint8_t nrDecimals = 2u);
+//void addHtmlFloat_NaN_toNull(const float& value, uint8_t nrDecimals = 2u);
+#if FEATURE_USE_DOUBLE_AS_ESPEASY_RULES_FLOAT_TYPE
+void addHtmlFloat(const double& value, uint8_t nrDecimals = 2u);
+//void addHtmlFloat_NaN_toNull(const double& value, uint8_t nrDecimals = 2u);
+#endif
 
 void addEncodedHtml(const __FlashStringHelper * html);
 void addEncodedHtml(const String& html);
 
+void addHtmlAttribute(char label, int value);
+void addHtmlAttribute(char label, float value);
 void addHtmlAttribute(const __FlashStringHelper * label, int value);
+void addHtmlAttribute(const __FlashStringHelper * label, float value);
 void addHtmlAttribute(const String& label, int value);
 void addHtmlAttribute(const __FlashStringHelper * label, const __FlashStringHelper * value);
 void addHtmlAttribute(const __FlashStringHelper * label, const String& value);
@@ -120,12 +165,17 @@ void addDisabled();
 
 void addHtmlLink(const String& htmlclass, const String& url, const String& label);
 
-void addHtmlDiv(const __FlashStringHelper * htmlclass, const String& content = EMPTY_STRING, const String& id = EMPTY_STRING);
+void addHtmlDiv(const __FlashStringHelper * htmlclass, const String& content = EMPTY_STRING, const String& id = EMPTY_STRING, const String& attribute = EMPTY_STRING);
 
 void addHtmlDiv(const String& htmlclass);
 void addHtmlDiv(const String& htmlclass, const String& content);
-void addHtmlDiv(const String& htmlclass, const String& content, const String& id);
+void addHtmlDiv(const String& htmlclass, const String& content, const String& id, const String& attribute = EMPTY_STRING);
 
 void addEnabled(boolean enabled);
+
+void addGpioHtml(int8_t pin);
+
+void Label_Gpio_toHtml(const __FlashStringHelper *label, const String& gpio_pin_descr);
+
 
 #endif

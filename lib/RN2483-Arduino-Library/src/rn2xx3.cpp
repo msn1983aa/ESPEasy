@@ -34,7 +34,7 @@ bool rn2xx3::getAsyncMode() const {
 bool rn2xx3::autobaud()
 {
   // FIXME TD-er: Must fix this, as it is not working well.
-  String response = "";
+  String response;
 
   // Try a maximum of 10 times with a 1 second delay
   for (uint8_t i = 0; i < 10 && response.length() == 0; i++)
@@ -170,12 +170,12 @@ uint8_t rn2xx3::get_busy_count() const
   return _rn2xx3_handler.get_busy_count();
 }
 
-rn2xx3_handler::RN_state rn2xx3::wait_command_finished(unsigned long timeout)
+rn2xx3_handler::RN_state rn2xx3::wait_command_finished(uint32_t timeout)
 {
   return _rn2xx3_handler.wait_command_finished(timeout);
 }
 
-rn2xx3_handler::RN_state rn2xx3::wait_command_accepted(unsigned long timeout)
+rn2xx3_handler::RN_state rn2xx3::wait_command_accepted(uint32_t timeout)
 {
   return _rn2xx3_handler.wait_command_accepted(timeout);
 }
@@ -226,7 +226,7 @@ bool rn2xx3::setDR(int dr)
   return _rn2xx3_handler.setDR(dr);
 }
 
-void rn2xx3::sleep(long msec)
+void rn2xx3::sleep(int32_t msec)
 {
   // FIXME TD-er: Must make this a command that waits for other commands to be finished first.
   _rn2xx3_handler._serial.print(F("sys sleep "));
@@ -243,9 +243,9 @@ RN2xx3_datatypes::Model rn2xx3::moduleType()
   return _rn2xx3_handler.moduleType();
 }
 
-bool rn2xx3::setFrequencyPlan(RN2xx3_datatypes::Freq_plan fp)
+bool rn2xx3::setFrequencyPlan(RN2xx3_datatypes::Freq_plan fp, uint32_t rx2_freq)
 {
-  return _rn2xx3_handler.setFrequencyPlan(fp);
+  return _rn2xx3_handler.setFrequencyPlan(fp, rx2_freq);
 }
 
 bool rn2xx3::setTTNstack(RN2xx3_datatypes::TTN_stack_version version)

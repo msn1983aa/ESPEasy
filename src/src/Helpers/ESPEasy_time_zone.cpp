@@ -1,11 +1,11 @@
-#include "ESPEasy_time_zone.h"
+#include "../Helpers/ESPEasy_time_zone.h"
 
 #include "../DataStructs/TimeChangeRule.h"
 #include "../ESPEasyCore/ESPEasy_Log.h"
 #include "../Globals/ESPEasy_time.h"
 #include "../Globals/Settings.h"
 
-#include "ESPEasy_time_calc.h"
+#include "../Helpers/ESPEasy_time_calc.h"
 
 #include <time.h>
 
@@ -53,6 +53,8 @@ void ESPEasy_time_zone::setTimeZone(const TimeChangeRule& dstStart, const TimeCh
 }
 
 void ESPEasy_time_zone::logTimeZoneInfo() {
+#ifndef BUILD_NO_DEBUG
+  if (!loglevelActiveFor(LOG_LEVEL_INFO)) return;
   String log = F("Current Time Zone: ");
 
   if (m_std.offset != m_dst.offset) {
@@ -61,8 +63,8 @@ void ESPEasy_time_zone::logTimeZoneInfo() {
 
     if (m_dstLoc != 0) {
       struct tm tmp;
-      ESPEasy_time::breakTime(m_dstLoc, tmp);
-      log += ESPEasy_time::getDateTimeString(tmp, '-', ':', ' ', false);
+      breakTime(m_dstLoc, tmp);
+      log += formatDateTimeString(tmp, '-', ':', ' ', false);
     }
     log += F(" offset: ");
     log += m_dst.offset;
@@ -74,13 +76,14 @@ void ESPEasy_time_zone::logTimeZoneInfo() {
 
   if (m_stdLoc != 0) {
     struct tm tmp;
-    ESPEasy_time::breakTime(m_stdLoc, tmp);
-    log += ESPEasy_time::getDateTimeString(tmp, '-', ':', ' ', false);
+    breakTime(m_stdLoc, tmp);
+    log += formatDateTimeString(tmp, '-', ':', ' ', false);
   }
   log += F(" offset: ");
   log += m_std.offset;
   log += F(" min");
-  addLog(LOG_LEVEL_INFO, log);
+  addLogMove(LOG_LEVEL_INFO, log);
+#endif
 }
 
 
@@ -154,6 +157,26 @@ uint32_t ESPEasy_time_zone::toLocal(uint32_t utc)
     return utc + m_std.offset * SECS_PER_MIN;
   }
 }
+
+/*----------------------------------------------------------------------*
+* Convert the given local time to UTC time, standard or                 *
+* daylight time, as appropriate.                                        *
+*-----------------------------------------------------------------------*/
+uint32_t ESPEasy_time_zone::fromLocal(uint32_t local)
+{
+  // recalculate the time change points if needed
+  if (ESPEasy_time::year(local) != ESPEasy_time::year(m_dstUTC)) { calcTimeChanges(ESPEasy_time::year(local)); }
+
+  if (locIsDST(local)) {
+    return local - m_dst.offset * SECS_PER_MIN;
+  }
+  else {
+    return local - m_std.offset * SECS_PER_MIN;
+  }
+}
+
+
+
 
 /*----------------------------------------------------------------------*
 * Determine whether the given UTC uint32_t is within the DST interval    *

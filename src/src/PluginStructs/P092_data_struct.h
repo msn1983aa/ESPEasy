@@ -5,8 +5,9 @@
 
 #ifdef USES_P092
 
-#include <Arduino.h>
-
+# ifdef LIMIT_BUILD_SIZE
+#  define P092_LIMIT_BUILD_SIZE
+# endif // ifdef LIMIT_BUILD_SIZE
 
 /*********************************************************************************************\
    DLBus subs to get values from the receiving bitstream
@@ -31,8 +32,7 @@
 
 enum class eP092pinmode {
   ePPM_Input          = 1,
-  ePPM_InputPullUp    = 2,
-  ePPM_InputPullDown  = 3
+  ePPM_InputPullUp    = 2
 };
 
 class DLBus {
@@ -44,7 +44,7 @@ public:
   volatile uint8_t ISR_DLB_Pin = 0xFF;
   volatile boolean ISR_Receiving = false; // receiving flag
   volatile boolean ISR_AllBitsReceived = false;
-  volatile uint16_t ISR_PulseCount = 0;   // number of received pulses
+  ESPEASY_VOLATILE(uint16_t) ISR_PulseCount = 0;   // number of received pulses
   volatile uint16_t ISR_PulseNumber = 0;  // max naumber of the received pulses
   volatile uint16_t ISR_MinPulseWidth = 0;
   volatile uint16_t ISR_MaxPulseWidth = 0;
@@ -53,7 +53,7 @@ public:
 
   // identification bytes for each DL bus device
   uint8_t DeviceBytes[2] = { 0 };
-  uint8_t ByteStream[DLbus_MaxDataBits / 8 + 1]; // every bit gets sorted into a bitmap
+  uint8_t ByteStream[DLbus_MaxDataBits / 8 + 1] = { 0 }; // every bit gets sorted into a bitmap
   boolean IsLogLevelInfo = false;
   boolean IsNoData = false;           // no data received (DL bus not connected), stop receiving until next call to PLUGIN_READ
   boolean IsISRset = false;           // ISR set flag, used for setting the ISR after network connected
@@ -68,7 +68,7 @@ public:
 private:
 
   volatile uint32_t ISR_TimeLastBitChange = 0;      // remember time of last transition
-  uint8_t DLbus_ChangeBitStream[DLbus_MaxDataBits]; // received bit change stream (each bit change is extended to uint8_t, containing the
+  uint8_t DLbus_ChangeBitStream[DLbus_MaxDataBits] = { 0 }; // received bit change stream (each bit change is extended to uint8_t, containing the
                                                     // timing flags)
   uint16_t BitNumber = 0;                           // bit number of the received DLbus_ChangeBitStream
   static void ISR(void);
@@ -82,7 +82,9 @@ private:
   void        Trim(int start_bit);
   boolean     CheckDevice(void);
   static DLBus *__instance;
+# ifndef P092_LIMIT_BUILD_SIZE
   void        AddToInfoLog(const String& string);
+# endif // ifndef P092_LIMIT_BUILD_SIZE
   void        AddToErrorLog(const String& string);
 };
 #endif // ifndef DLBus_H
@@ -115,21 +117,21 @@ private:
 # define P092_double_max_width_50    (P092_double_pulse_width_50 + (P092_pulse_width_50 * P092_percentage_variance / 100))
 
 # define P092_DLbus_OptionCount 8
-# define P092_DLbus_DeviceCount 5
+# define P092_DLbus_DeviceCount 6
 
 
 struct P092_data_struct : public PluginTaskData_base {
 public:
 
-  P092_data_struct();
-  ~P092_data_struct();
+  P092_data_struct() = default;
+  virtual ~P092_data_struct();
 
   bool init(int8_t pin1, int P092DeviceIndex, eP092pinmode P092pinmode);
 
   typedef struct {
-    uint8_t Idx;
-    uint8_t mode;
-    float   value;
+    uint8_t Idx = 0u;
+    uint8_t mode = 0u;
+    float   value = 0.0f;
   } sP092_ReadData;
 
   void    Plugin_092_SetIndices(int P092DeviceIndex);
@@ -155,57 +157,57 @@ public:
                                sP092_ReadData *ReadData); // heat meters(s)
 
 
-  uint8_t  P092_Last_DLB_Pin;
+//  uint8_t  P092_Last_DLB_Pin;
   boolean  P092_ReceivedOK   = false;
   uint32_t P092_LastReceived = 0;
   struct _P092_DataStruct
   {
-    uint8_t DataBytes;
-    uint8_t DeviceByte0;
-    uint8_t DeviceByte1;
-    uint8_t DeviceBytes;
-    uint8_t DontCareBytes;
-    uint8_t TimeStampBytes;
-    uint8_t MaxSensors;
-    uint8_t MaxExtSensors;
-    uint8_t OutputBytes;
-    uint8_t SpeedBytes;
-    uint8_t MaxAnalogOuts;
-    uint8_t AnalogBytes;
-    uint8_t VolumeBytes;
-    uint8_t MaxHeatMeters;
-    uint8_t CurrentHmBytes;
-    uint8_t MWhBytes;
+    uint8_t DataBytes = 0u;
+    uint8_t DeviceByte0 = 0u;
+    uint8_t DeviceByte1 = 0u;
+    uint8_t DeviceBytes = 0u;
+    uint8_t DontCareBytes = 0u;
+    uint8_t TimeStampBytes = 0u;
+    uint8_t MaxSensors = 0u;
+    uint8_t MaxExtSensors = 0u;
+    uint8_t OutputBytes = 0u;
+    uint8_t SpeedBytes = 0u;
+    uint8_t MaxAnalogOuts = 0u;
+    uint8_t AnalogBytes = 0u;
+    uint8_t VolumeBytes = 0u;
+    uint8_t MaxHeatMeters = 0u;
+    uint8_t CurrentHmBytes = 0u;
+    uint8_t MWhBytes = 0u;
 
-    uint16_t DLbus_MinPulseWidth;
-    uint16_t DLbus_MaxPulseWidth;
-    uint16_t DLbus_MinDoublePulseWidth;
-    uint16_t DLbus_MaxDoublePulseWidth;
-    uint8_t  IdxSensor;
-    uint8_t  IdxExtSensor;
-    uint8_t  IdxOutput;
-    uint8_t  IdxDrehzahl;
-    uint8_t  IdxAnalog;
-    uint8_t  IdxHmRegister;
-    uint8_t  IdxVolume;
-    uint8_t  IdxHeatMeter1;
-    uint8_t  IdxkWh1;
-    uint8_t  IdxMWh1;
-    uint8_t  IdxHeatMeter2;
-    uint8_t  IdxkWh2;
-    uint8_t  IdxMWh2;
-    uint8_t  IdxHeatMeter3;
-    uint8_t  IdxkWh3;
-    uint8_t  IdxMWh3;
-    uint8_t  IdxCRC;
+    uint16_t DLbus_MinPulseWidth = 0u;
+    uint16_t DLbus_MaxPulseWidth = 0u;
+    uint16_t DLbus_MinDoublePulseWidth = 0u;
+    uint16_t DLbus_MaxDoublePulseWidth = 0u;
+    uint8_t  IdxSensor = 0u;
+    uint8_t  IdxExtSensor = 0u;
+    uint8_t  IdxOutput = 0u;
+    uint8_t  IdxDrehzahl = 0u;
+    uint8_t  IdxAnalog = 0u;
+    uint8_t  IdxHmRegister = 0u;
+    uint8_t  IdxVolume = 0u;
+    uint8_t  IdxHeatMeter1 = 0u;
+    uint8_t  IdxkWh1 = 0u;
+    uint8_t  IdxMWh1 = 0u;
+    uint8_t  IdxHeatMeter2 = 0u;
+    uint8_t  IdxkWh2 = 0u;
+    uint8_t  IdxMWh2 = 0u;
+    uint8_t  IdxHeatMeter3 = 0u;
+    uint8_t  IdxkWh3 = 0u;
+    uint8_t  IdxMWh3 = 0u;
+    uint8_t  IdxCRC = 0u;
   } P092_DataSettings;
 
   // heat meter
   typedef struct {
-    uint8_t IndexIsValid;
-    int32_t power_index;
-    int32_t kwh_index;
-    int32_t mwh_index;
+    uint8_t IndexIsValid = 0u;
+    int32_t power_index = 0;
+    int32_t kwh_index = 0;
+    int32_t mwh_index = 0;
   } sDLbus_HMindex;
 
   sDLbus_HMindex P092_CheckHmRegister(int number);

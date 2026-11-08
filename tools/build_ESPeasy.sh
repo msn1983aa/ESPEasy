@@ -7,10 +7,10 @@
 # sudo apt-get update
 # sudo apt-get upgrade
 # sudo apt install python3-minimal virtualenv build-essential zip binutils
-# For Python 3.8:
+# For Python 3.10:
 # sudo apt install -y software-properties-common
 # sudo add-apt-repository ppa:deadsnakes/ppa
-# sudo apt install -y python3.8
+# sudo apt install -y python3.10
 
 
 
@@ -49,7 +49,7 @@ BUILD_ESP82XX=0
 # -l is for long options with double dash like --version
 # the comma separates different long options
 # -a is for long options with single dash like -version
-options=$(getopt -l "help,pull-request:,description:,tag:,src-dir:,docs,esp32,esp82xx" -o ":hp:d:t:s:" -a -- "$@")
+options=$(getopt -l "help,pull-request:,description:,tag:,src-dir:,docs,esp32,esp82xx,esp8266" -o ":hp:d:t:s:" -a -- "$@")
 
 # set --:
 # If no arguments follow this option, then the positional parameters are unset. Otherwise, the positional parameters 
@@ -89,6 +89,10 @@ case $1 in
   BUILD_ALL=0
   BUILD_ESP82XX=1
   ;;
+--esp8266)
+  BUILD_ALL=0
+  BUILD_ESP82XX=1
+  ;;
 \?) echo "Invalid option: $2" 1>&2
    HELP=1;;
 --)
@@ -98,7 +102,7 @@ esac
 shift
 done
 
-VENV=`echo "${SRC}/venv/python3.8"`
+VENV=`echo "${SRC}/venv/python3.10"`
 TMP_DIST=`echo "${SRC}/ESPEasy_collect_dist"`
 
 
@@ -136,10 +140,10 @@ if (( $HELP != 0 )); then
    echo "  sudo apt-get update"
    echo "  sudo apt-get upgrade"
    echo "  sudo apt install python3-minimal virtualenv build-essential zip binutils coreutils"
-   echo "For Python 3.8:"
+   echo "For Python 3.10:"
    echo "  sudo apt install -y software-properties-common"
    echo "  sudo add-apt-repository ppa:deadsnakes/ppa"
-   echo "  sudo apt install -y python3.8"
+   echo "  sudo apt install -y python3.10"
    echo "For Sphinx (convert):"
    echo "  sudo apt install imagemagick"
    echo ""
@@ -198,10 +202,10 @@ fi
 if [ ! -d ${VENV} ]; then
   echo "Creating Python virtual env in: ${VENV}"
   mkdir -p ${VENV}
-  virtualenv -p python3.8 ${VENV}
+  virtualenv -p python3.10 ${VENV}
   if [ $? -ne 0 ]; then
     echo "Could not create Python virtual env:"
-    echo "  virtualenv -p python3.8 ${VENV}"
+    echo "  virtualenv -p python3.10 ${VENV}"
     exit 1
   fi
 fi
@@ -213,10 +217,6 @@ if [ $? -ne 0 ]; then
   echo "  source ${VENV}/bin/activate"
   exit 1
 fi
-
-pip install -U platformio
-# suppress lots of messages when packages are already installed with the correct version.
-set -o pipefail; pip install -r ${SRC}/docs/requirements.txt | { grep -v "already satisfied" || :; }
 
 # fetch latest version from active branch
 cd ${SRC}
@@ -276,13 +276,20 @@ fi
 if (( $BUILD_DOCS != 0 )); then
   # Build documentation
   cd ${SRC}/docs
+  set -o pipefail; pip install -r ${SRC}/requirements.txt | { grep -v "already satisfied" || :; }
   make html
 fi
 
+cd ${SRC}
+
+pip install -U platformio
+
+# suppress lots of messages when packages are already installed with the correct version.
+set -o pipefail; pip install -r ${SRC}/requirements.txt | { grep -v "already satisfied" || :; }
+
 # Update (and clean) all targets
 # N.B. clean does also install missing packages which must be installed before applying patches.
-cd ${SRC}
-platformio update
+platformio pkg update
 platformio run --target clean
 # patch platformio core libs for PUYA bug (https://github.com/letscontrolit/ESPEasy/issues/650)
 cd ${SRC}/patches; ./check_puya_patch;
@@ -291,7 +298,6 @@ cd ${SRC}
 if [ -d "build_output/" ]; then
   rm -Rf build_output/*
 fi
-
 
 if (( $BUILD_ESP32 != 0 )); then
   # Must look into all possible env definitions.
@@ -368,6 +374,7 @@ fi
 #rm -rf dist/Source 2>/dev/null
 
 mkdir -p ${TMP_DIST}/source
+cp -r boards ${TMP_DIST}/source/
 cp -r lib ${TMP_DIST}/source/
 cp -r src ${TMP_DIST}/source/
 cp -r misc ${TMP_DIST}/source/
@@ -385,6 +392,10 @@ cd ${TMP_DIST}
 
 if (( $BUILD_ESP82XX != 0 )); then
   if [ "$(ls -A ${TMP_DIST}/bin/)"  ]; then
+
+    #source ${SRC}/tools/create_index.sh -d $DESCRIPTION > ${TMP_DIST}/webflasher_esp8266.html
+    #echo "### Created webflasher_esp8266.html"
+
     echo
     zip -qq ${SRC}/ESPEasy_ESP82xx_$DESCRIPTION.zip -r .
     echo "### Created ${SRC}/ESPEasy_ESP82xx_$DESCRIPTION.zip"
@@ -408,6 +419,9 @@ if (( $BUILD_ESP32 != 0 )); then
   cd ${TMP_DIST}
 
   if [ "$(ls -A ${TMP_DIST}/bin/)"  ]; then
+    #source ${SRC}/tools/create_index.sh -d $DESCRIPTION > ${TMP_DIST}/webflasher_esp32.html
+    #echo "### Created webflasher_esp32.html"
+
     echo
     zip -qq ${SRC}/ESPEasy_ESP32_$DESCRIPTION.zip -r .
     echo "### Created ${SRC}/ESPEasy_ESP32_$DESCRIPTION.zip"

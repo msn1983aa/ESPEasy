@@ -4,7 +4,25 @@ import os
 import platform
 import shutil
 from datetime import date
+import datetime
+import time
 import json
+import collections
+
+
+def compute_version_date():
+    d0 = date(2022, 8, 18)
+    today = date.today()
+    delta = today - d0
+    return 20200 + delta.days
+
+
+def create_RFC1123_build_date():
+    return datetime.datetime.utcnow().strftime('%a, %d %b %Y %H:%M:%S GMT')
+
+
+def create_build_unixtime():
+    return int( time.time() )
 
 
 def create_binary_filename():
@@ -13,12 +31,54 @@ def create_binary_filename():
     return 'ESP_Easy_mega_{}_{}'.format(d1, env["PIOENV"])
 
 
+def get_board_name():
+    return env.BoardConfig().get("name").replace('"', "")
+
+
+def get_cdn_url_prefix():
+    try:
+        from pygit2 import Repository
+        import re
+        try:
+            repo = Repository('.')
+            try:
+                # Test to see if the current checkout is a tag
+                regex = re.compile('^refs/tags/mega-{0}'.format(repo.head.shorthand))
+                tags = [r for r in repo.references if regex.match(r)]
+                tag = tags[0]
+                tag = tag.replace('refs/tags/','@')
+                return "https://cdn.jsdelivr.net/gh/letscontrolit/ESPEasy{0}/static/".format(tag)
+            except:
+                # Not currently on a tag, thus use the last tag.
+                regex = re.compile('^refs/tags/mega')
+                tags = [r for r in repo.references if regex.match(r)]
+                tags.sort()
+                tags.reverse()
+                tag = tags[0]
+
+                today = date.today()
+                d1 = today.strftime("%Y%m%d")
+
+                # work-around to allow users to use files not yet available on a tagged version
+                if d1 not in tag:
+                    return 'https://cdn.jsdelivr.net/gh/letscontrolit/ESPEasy@mega/static/'
+                    
+                tag = tag.replace('refs/tags/','@')
+                return "https://cdn.jsdelivr.net/gh/letscontrolit/ESPEasy{0}/static/".format(tag)
+        except:
+            return 'https://cdn.jsdelivr.net/gh/letscontrolit/ESPEasy@mega/static/'
+    except ImportError:
+        return 'https://cdn.jsdelivr.net/gh/letscontrolit/ESPEasy@mega/static/'
+
+
 def get_git_description():
     try:
         from pygit2 import Repository
         try:
             repo = Repository('.')
-            return "'{0}_{1}'".format(repo.head.shorthand, repo.revparse_single('HEAD').short_id)
+            return "{0}_{1}".format(repo.head.name
+                                    .replace("refs/heads/","",1)
+                                    .replace("refs/tags/","",1), repo.revparse_single('HEAD').short_id)
         except:
             return 'No_.git_dir'
     except ImportError:
@@ -34,40 +94,57 @@ def deduct_flags_from_pioenv():
     print("\u001b[33m File System:    \u001b[0m  {}".format(fs_str))
 
 
-# needed to wrap in a number of double quotes.
-# one level for adding it to the list of defines
-# another level to have the string quoted in the .cpp file
-# somewhere along the line, another level is removed.
-def wrap_quotes(str_value):
-    if platform.system() == 'Windows':
-        return "\"\"\"{}\"\"\"".format(str_value)
-    else:
-        return '\'\"\"\"{}\"\"\"\''.format(str_value)
-
-
-def gen_compiletime_defines(node):
+def gen_compiletime_defines():
     """
     `node.name` - a name of File System Node
     `node.get_path()` - a relative path
     `node.get_abspath()` - an absolute path
     """
 
-    # do not modify node if file name does not contain "CompiletimeDefines.cpp"
-    if "CompiletimeDefines.cpp" not in node.name:
-        return node
-
     # now, we can override ANY SCons variables (CPPDEFINES, CCFLAGS, etc.,) for the specific file
     # pass SCons variables as extra keyword arguments to `env.Object()` function
     # p.s: run `pio run -t envdump` to see a list with SCons variables
 
-    return env.Object(
-        node,
-        CPPDEFINES=env["CPPDEFINES"]
-        + [("SET_BUILD_BINARY_FILENAME", wrap_quotes(create_binary_filename()))]
-        + [("SET_BUILD_PLATFORM", wrap_quotes(platform.platform()))]
-        + [("SET_BUILD_GIT_HEAD", wrap_quotes(get_git_description()))],
-        CCFLAGS=env["CCFLAGS"]
-    )
+    defines = [
+        "-DSET_BUILD_BINARY_FILENAME=\\\"{}\\\"".format(create_binary_filename()),
+        "-DSET_BOARD_NAME=\\\"{}\\\"".format(get_board_name()),
+        "-DSET_BUILD_PLATFORM=\\\"{}\\\"".format(platform.platform()),
+        "-DSET_BUILD_GIT_HEAD=\\\"{}\\\"".format(get_git_description()),
+        "-DSET_BUILD_CDN_URL=\\\"{}\\\"".format(get_cdn_url_prefix()),
+        "-DSET_BUILD_VERSION={}".format(compute_version_date()),
+        "-DSET_BUILD_UNIXTIME={}".format(create_build_unixtime()),
+        "-DSET_BUILD_TIME_RFC1123=\\\"{}\\\"".format(create_RFC1123_build_date())
+    ]
+
+    env.Append(CXXFLAGS=defines)
+
+def gen_compiletime_defines_headerfile():
+    """
+    BUILD_DIR = env.subst("$BUILD_DIR")
+    PROJECT_DIR = env.subst("$PROJECT_DIR")
+    PROJECT_SRC_DIR = env.subst("$PROJECT_SRC_DIR")
+    """
+    
+    PROJECT_SRC_DIR = env.subst("$PROJECT_SRC_DIR")
+    header_file = os.path.join(PROJECT_SRC_DIR, 'src/CustomBuild/CompiletimeDefines_generated.h')
+
+    with open(header_file, 'w') as f:
+        lines = [
+            "#pragma once\n",
+            "// Generated compile time defines\n",
+            "// Do not edit this file\n",
+            "\n",
+            "#define SET_BUILD_BINARY_FILENAME \"{}\"\n".format(create_binary_filename()),
+            "#define SET_BOARD_NAME            \"{}\"\n".format(get_board_name()),
+            "#define SET_BUILD_PLATFORM        \"{}\"\n".format(platform.platform()),
+            "#define SET_BUILD_GIT_HEAD        \"{}\"\n".format(get_git_description()),
+            "#define SET_BUILD_CDN_URL         \"{}\"\n".format(get_cdn_url_prefix()),
+            "#define SET_BUILD_VERSION         {}\n".format(compute_version_date()),
+            "#define SET_BUILD_UNIXTIME        {}\n".format(create_build_unixtime()),
+            "#define SET_BUILD_TIME_RFC1123    \"{}\"\n".format(create_RFC1123_build_date())
+        ]
+        f.writelines(lines)
+
 
 print("\u001b[32m Compile time defines \u001b[0m")
 deduct_flags_from_pioenv()
@@ -75,9 +152,24 @@ deduct_flags_from_pioenv()
 # Set the binary filename in the environment to be used in other build steps
 env.Replace(PROGNAME=create_binary_filename())
 print("\u001b[33m PROGNAME:       \u001b[0m  {}".format(env['PROGNAME']))
+print("\u001b[33m BOARD_NAME:     \u001b[0m  {}".format(get_board_name()))
 print("\u001b[33m BUILD_PLATFORM: \u001b[0m  {}".format(platform.platform()))
 print("\u001b[33m GIT_HEAD:       \u001b[0m  {}".format(get_git_description()))
+print("\u001b[33m CDN_URL:        \u001b[0m  {}".format(get_cdn_url_prefix()))
+print("\u001b[33m BUILD_VERSION:  \u001b[0m  {}".format(compute_version_date()))
+print("\u001b[33m BUILD_UNIXTIME: \u001b[0m  {}".format(create_build_unixtime()))
+print("\u001b[33m BUILD_RFC1123:  \u001b[0m  {}".format(create_RFC1123_build_date()))
+
 print("\u001b[32m ------------------------------- \u001b[0m")
+print("\u001b[32m Flash configuration \u001b[0m")
+print("\u001b[33m --flash-size: \u001b[0m  {}".format(env.BoardConfig().get("upload.flash_size", "4MB")))
+print("\u001b[33m --flash-freq: \u001b[0m  {}".format(env.BoardConfig().get("build.f_flash")))
+print("\u001b[33m --flash-mode: \u001b[0m  {}".format(env.BoardConfig().get("build.flash_mode")))
+if "esp32" in env.BoardConfig().get("build.core"):
+  print("\u001b[33m  memory_type: \u001b[0m  {}".format(env.BoardConfig().get("build.arduino.memory_type", "-")))
 
-
-env.AddBuildMiddleware(gen_compiletime_defines)
+  # Generate header file 'CustomBuild/CompiletimeDefines_generated.h'
+  gen_compiletime_defines_headerfile()
+else:
+  # ESP8266 cannot be built with __has_include, so we generate CXXFLAGS defines
+  gen_compiletime_defines()

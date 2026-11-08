@@ -6,14 +6,13 @@
 // #######################################################################################################
 
 
+# define PLUGIN_034
+# define PLUGIN_ID_034         34
+# define PLUGIN_NAME_034       "Environment - DHT12 (I2C)"
+# define PLUGIN_VALUENAME1_034 "Temperature"
+# define PLUGIN_VALUENAME2_034 "Humidity"
 
-#define PLUGIN_034
-#define PLUGIN_ID_034         34
-#define PLUGIN_NAME_034       "Environment - DHT12 (I2C)"
-#define PLUGIN_VALUENAME1_034 "Temperature"
-#define PLUGIN_VALUENAME2_034 "Humidity"
-
-#define DHT12_I2C_ADDRESS      0x5C // I2C address for the sensor
+# define DHT12_I2C_ADDRESS      0x5C // I2C address for the sensor
 
 boolean Plugin_034(uint8_t function, struct EventStruct *event, String& string)
 {
@@ -23,17 +22,14 @@ boolean Plugin_034(uint8_t function, struct EventStruct *event, String& string)
   {
     case PLUGIN_DEVICE_ADD:
     {
-      Device[++deviceCount].Number           = PLUGIN_ID_034;
-      Device[deviceCount].Type               = DEVICE_TYPE_I2C;
-      Device[deviceCount].VType              = Sensor_VType::SENSOR_TYPE_TEMP_HUM;
-      Device[deviceCount].Ports              = 0;
-      Device[deviceCount].PullUpOption       = false;
-      Device[deviceCount].InverseLogicOption = false;
-      Device[deviceCount].FormulaOption      = true;
-      Device[deviceCount].ValueCount         = 2;
-      Device[deviceCount].SendDataOption     = true;
-      Device[deviceCount].TimerOption        = true;
-      Device[deviceCount].GlobalSyncOption   = true;
+      auto& dev = Device[++deviceCount];
+      dev.Number         = PLUGIN_ID_034;
+      dev.Type           = DEVICE_TYPE_I2C;
+      dev.VType          = Sensor_VType::SENSOR_TYPE_TEMP_HUM;
+      dev.FormulaOption  = true;
+      dev.ValueCount     = 2;
+      dev.SendDataOption = true;
+      dev.TimerOption    = true;
       break;
     }
 
@@ -56,6 +52,15 @@ boolean Plugin_034(uint8_t function, struct EventStruct *event, String& string)
       break;
     }
 
+    # if FEATURE_I2C_GET_ADDRESS
+    case PLUGIN_I2C_GET_ADDRESS:
+    {
+      event->Par1 = DHT12_I2C_ADDRESS;
+      success     = true;
+      break;
+    }
+    # endif // if FEATURE_I2C_GET_ADDRESS
+
     case PLUGIN_INIT:
     {
       success = true;
@@ -65,19 +70,14 @@ boolean Plugin_034(uint8_t function, struct EventStruct *event, String& string)
     case PLUGIN_READ:
     {
       uint8_t dht_dat[5];
-
-      // uint8_t dht_in;
-      uint8_t i;
-
-      // uint8_t Retry = 0;
-      boolean error = false;
+      bool    error = false;
 
       Wire.beginTransmission(DHT12_I2C_ADDRESS);         // start transmission to device
       Wire.write(0);                                     // sends register address to read from
       Wire.endTransmission();                            // end transmission
 
       if (Wire.requestFrom(DHT12_I2C_ADDRESS, 5) == 5) { // send data n-bytes read
-        for (i = 0; i < 5; i++)
+        for (uint8_t i = 0; i < 5; ++i)
         {
           dht_dat[i] = Wire.read();                      // receive DATA
         }
@@ -88,24 +88,26 @@ boolean Plugin_034(uint8_t function, struct EventStruct *event, String& string)
       if (!error)
       {
         // Checksum calculation is a Rollover Checksum by design!
-        uint8_t dht_check_sum = dht_dat[0] + dht_dat[1] + dht_dat[2] + dht_dat[3]; // check check_sum
+        const uint8_t dht_check_sum = dht_dat[0] + dht_dat[1] + dht_dat[2] + dht_dat[3]; // check check_sum
 
         if (dht_dat[4] == dht_check_sum)
         {
-          float temperature = float(dht_dat[2] * 10 + (dht_dat[3] & 0x7f)) / 10.0f; // Temperature
+          const float temperature = static_cast<float>(
+            (dht_dat[2] * 10 + (dht_dat[3] & 0x7f)) * (dht_dat[3] & 0x80 ? -1 : 1)) / 10.0f; // Temperature
 
-          if (dht_dat[3] & 0x80) { temperature = -temperature; }
-          float humidity = float(dht_dat[0] * 10 + dht_dat[1]) / 10.0f;             // Humidity
+          const float humidity = float(dht_dat[0] * 10 + dht_dat[1]) / 10.0f;                // Humidity
 
-          UserVar[event->BaseVarIndex]     = temperature;
-          UserVar[event->BaseVarIndex + 1] = humidity;
+          UserVar.setFloat(event->TaskIndex, 0, temperature);
+          UserVar.setFloat(event->TaskIndex, 1, humidity);
+
+          #ifndef BUILD_NO_DEBUG
           if (loglevelActiveFor(LOG_LEVEL_INFO)) {
-            String log = F("DHT12: Temperature: ");
-            log += formatUserVarNoCheck(event->TaskIndex, 0);
-            addLog(LOG_LEVEL_INFO, log);
-            log  = F("DHT12: Humidity: ");
-            log += formatUserVarNoCheck(event->TaskIndex, 1);
-            addLog(LOG_LEVEL_INFO, log);
+            addLogMove(LOG_LEVEL_INFO,
+                       concat(F("DHT12: Temperature: "),
+                              formatUserVarNoCheck(event, 0)));
+            addLogMove(LOG_LEVEL_INFO,
+                       concat(F("DHT12: Humidity: "),
+                              formatUserVarNoCheck(event, 1)));
 
             /*
                         log = F("DHT12: Data: ");
@@ -115,17 +117,20 @@ boolean Plugin_034(uint8_t function, struct EventStruct *event, String& string)
                           log += ", ";
                         }
                         addLog(LOG_LEVEL_INFO, log);
-            */
+             */
           }
+          #endif // ifndef BUILD_NO_DEBUG
           success = true;
         } // checksum
       }   // error
 
       if (!success)
       {
+        #ifndef BUILD_NO_DEBUG
         addLog(LOG_LEVEL_INFO, F("DHT12: No reading!"));
-        UserVar[event->BaseVarIndex]     = NAN;
-        UserVar[event->BaseVarIndex + 1] = NAN;
+        #endif // ifndef BUILD_NO_DEBUG
+        UserVar.setFloat(event->TaskIndex, 0, NAN);
+        UserVar.setFloat(event->TaskIndex, 1, NAN);
       }
       break;
     }

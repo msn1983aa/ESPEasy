@@ -10,9 +10,10 @@ struct P083_data_struct : public PluginTaskData_base {
 public:
 
   P083_data_struct();
+  virtual ~P083_data_struct() = default;
 
   Adafruit_SGP30 sgp;
-  unsigned long  init_time   = 0;
+  uint32_t  init_time   = 0;
   bool           initialized = false;
   bool           newValues   = false;
 };

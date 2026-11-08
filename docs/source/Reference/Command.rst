@@ -1,5 +1,7 @@
 .. include:: ../Plugin/_plugin_substitutions.repl
 
+.. _command-reference:
+
 Command Reference
 *****************
 
@@ -47,11 +49,11 @@ ESP Easy offers a set of commands to control hardware devices and provide some b
 
 Commands are divided into several classes:
 
-:red:`Internal` can be run from serial and rules engine
+:red:`Internal` Commands not related to plugins, controllers or notifications. Can be run from serial and rules engine
 
-:green:`Rules` can be run from serial and rules engine
+:green:`Rules` Related to rules processing. Can be run from serial and rules engine
 
-:cyan:`Plugin` can be run from serial, rules engine, HTTP, MQTT
+:cyan:`Plugin` Commands specific for a plugin. Can be run from serial, rules engine, HTTP, MQTT
 
 :blue:`Special` can be used from any source
 
@@ -114,6 +116,19 @@ Ringtone Internal GPIO
 
 .. include:: ../Plugin/P001_commands_RTTTL.repl
 
+Task Value Stats Commands
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+(Added: 2022/07/11)
+For task values with "Stats" enabled, one can call commands on this statistical data.
+
+Commands on "Stats" data:
+
+* ``bme.resetpeaks`` Reset the recorded "max" and "min" value of all task values of the task called "bme".
+* ``bme.clearsamples`` Clear the recorded historic samples of all task values of the task called "bme".
+
+
+
 
 Plugin based commands
 ---------------------
@@ -158,10 +173,10 @@ P003 :ref:`P003_page`
 .. .. include:: ../Plugin/P006_commands.repl
 
 
-.. P007 :ref:`P007_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P007 :ref:`P007_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P007_commands.repl
+.. include:: ../Plugin/P007_commands.repl
 
 
 .. P008 :ref:`P008_page`
@@ -170,10 +185,10 @@ P003 :ref:`P003_page`
 .. .. include:: ../Plugin/P008_commands.repl
 
 
-.. P009 :ref:`P009_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P009 :ref:`P009_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P009_commands.repl
+.. include:: ../Plugin/P009_commands.repl
 
 
 .. P010 :ref:`P010_page`
@@ -182,10 +197,10 @@ P003 :ref:`P003_page`
 .. .. include:: ../Plugin/P010_commands.repl
 
 
-.. P011 :ref:`P011_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P011 :ref:`P011_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P011_commands.repl
+.. include:: ../Plugin/P011_commands.repl
 
 
 P012 :ref:`P012_page`
@@ -230,34 +245,34 @@ P012 :ref:`P012_page`
 .. .. include:: ../Plugin/P018_commands.repl
 
 
-.. P019 :ref:`P019_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P019 :ref:`P019_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P019_commands.repl
-
-
-.. P020 :ref:`P020_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. .. include:: ../Plugin/P020_commands.repl
+.. include:: ../Plugin/P019_commands.repl
 
 
-.. P021 :ref:`P021_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P020 :ref:`P020_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P021_commands.repl
-
-
-.. P022 :ref:`P022_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-.. .. include:: ../Plugin/P022_commands.repl
+.. include:: ../Plugin/P020_commands.repl
 
 
-.. P023 :ref:`P023_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P021 :ref:`P021_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P023_commands.repl
+.. include:: ../Plugin/P021_commands.repl
+
+
+P022 :ref:`P022_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P022_commands.repl
+
+
+P023 :ref:`P023_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P023_commands.repl
 
 
 .. P024 :ref:`P024_page`
@@ -326,10 +341,10 @@ P012 :ref:`P012_page`
 .. .. include:: ../Plugin/P034_commands.repl
 
 
-.. P035 :ref:`P035_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P035 :ref:`P035_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P035_commands.repl
+.. include:: ../Plugin/P035_commands.repl
 
 
 P036 :ref:`P036_page`
@@ -344,10 +359,10 @@ P036 :ref:`P036_page`
 .. .. include:: ../Plugin/P037_commands.repl
 
 
-.. P038 :ref:`P038_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P038 :ref:`P038_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P038_commands.repl
+.. include:: ../Plugin/P038_commands.repl
 
 
 .. P039 :ref:`P039_page`
@@ -374,10 +389,10 @@ P036 :ref:`P036_page`
 .. .. include:: ../Plugin/P042_commands.repl
 
 
-.. P043 :ref:`P043_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P043 :ref:`P043_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P043_commands.repl
+.. include:: ../Plugin/P043_commands.repl
 
 
 .. P044 :ref:`P044_page`
@@ -410,10 +425,10 @@ P048 :ref:`P048_page`
 .. include:: ../Plugin/P048_commands.repl
 
 
-.. P049 :ref:`P049_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P049 :ref:`P049_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P049_commands.repl
+.. include:: ../Plugin/P049_commands.repl
 
 
 .. P050 :ref:`P050_page`
@@ -434,10 +449,10 @@ P052 :ref:`P052_page`
 .. include:: ../Plugin/P052_commands.repl
 
 
-.. P053 :ref:`P053_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P053 :ref:`P053_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P053_commands.repl
+.. include:: ../Plugin/P053_commands.repl
 
 
 .. P054 :ref:`P054_page`
@@ -470,10 +485,10 @@ P052 :ref:`P052_page`
 .. .. include:: ../Plugin/P058_commands.repl
 
 
-.. P059 :ref:`P059_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P059 :ref:`P059_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P059_commands.repl
+.. include:: ../Plugin/P059_commands.repl
 
 
 .. P060 :ref:`P060_page`
@@ -518,10 +533,10 @@ P065 :ref:`P065_page`
 .. .. include:: ../Plugin/P066_commands.repl
 
 
-.. P067 :ref:`P067_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P067 :ref:`P067_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P067_commands.repl
+.. include:: ../Plugin/P067_commands.repl
 
 
 .. P068 :ref:`P068_page`
@@ -554,10 +569,10 @@ P065 :ref:`P065_page`
 .. .. include:: ../Plugin/P072_commands.repl
 
 
-.. P073 :ref:`P073_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P073 :ref:`P073_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P073_commands.repl
+.. include:: ../Plugin/P073_commands.repl
 
 
 .. P074 :ref:`P074_page`
@@ -578,16 +593,16 @@ P076 :ref:`P076_page`
 .. include:: ../Plugin/P076_commands.repl
 
 
-.. P077 :ref:`P077_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P077 :ref:`P077_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P077_commands.repl
+.. include:: ../Plugin/P077_commands.repl
 
 
-.. P078 :ref:`P078_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P078 :ref:`P078_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P078_commands.repl
+.. include:: ../Plugin/P078_commands.repl
 
 
 P079 :ref:`P079_page`
@@ -608,15 +623,26 @@ P079 :ref:`P079_page`
 .. .. include:: ../Plugin/P081_commands.repl
 
 
-.. P082 :ref:`P082_page`
-.. ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+P082 :ref:`P082_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-.. .. include:: ../Plugin/P082_commands.repl
+.. include:: ../Plugin/P082_commands.repl
+
+P087 :ref:`P087_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P087_commands.repl
 
 P088 :ref:`P088_page`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. include:: ../Plugin/P088_commands.repl
+
+
+P089 :ref:`P089_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P089_commands.repl
 
 
 P091 :ref:`P091_page`
@@ -640,6 +666,14 @@ P095 :ref:`P095_page`
 
 .. include:: ../Plugin/P095_commands.repl
 
+See also the :ref:`AdafruitGFX Helper commands <AdafruitGFX Helper commands>`, below.
+
+P098 :ref:`P098_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P098_commands.repl
+
+
 P099 :ref:`P099_page`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -652,8 +686,177 @@ P101 :ref:`P101_page`
 .. include:: ../Plugin/P101_commands.repl
 
 
+P104 :ref:`P104_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P104_commands.repl
+
+P109 :ref:`P109_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P109_commands.repl
 
 P115 :ref:`P115_page`
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. include:: ../Plugin/P115_commands.repl
+
+P116 :ref:`P116_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P116_commands.repl
+
+See also the :ref:`AdafruitGFX Helper commands <AdafruitGFX Helper commands>`, below.
+
+P117 :ref:`P117_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P117_commands.repl
+
+P118 :ref:`P118_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P118_commands.repl
+
+P123 :ref:`P123_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P123_commands.repl
+
+P124 :ref:`P124_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P124_commands.repl
+
+P126 :ref:`P126_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P126_commands.repl
+
+P127 :ref:`P127_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P127_commands.repl
+
+P128 :ref:`P128_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P128_commands.repl
+
+P129 :ref:`P129_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P129_commands.repl
+
+P131 :ref:`P131_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P131_commands.repl
+
+See also the :ref:`AdafruitGFX Helper commands <AdafruitGFX Helper commands>`, below.
+
+P135 :ref:`P135_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P135_commands.repl
+
+P137 :ref:`P137_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P137_commands.repl
+
+P139 :ref:`P139_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P139_commands.repl
+
+P140 :ref:`P140_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P140_commands.repl
+
+P141 :ref:`P141_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P141_commands.repl
+
+See also the :ref:`AdafruitGFX Helper commands <AdafruitGFX Helper commands>`, below.
+
+P143 :ref:`P143_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P143_commands.repl
+
+P146 :ref:`P146_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P146_commands.repl
+
+P148 :ref:`P148_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P148_commands.repl
+
+P152 :ref:`P152_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P152_commands.repl
+
+P153 :ref:`P153_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P153_commands.repl
+
+P159 :ref:`P159_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P159_commands.repl
+
+P162 :ref:`P162_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P162_commands.repl
+
+P163 :ref:`P163_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P163_commands.repl
+
+P166 :ref:`P166_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P166_commands.repl
+
+P167 :ref:`P167_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P167_commands.repl
+
+P169 :ref:`P169_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P169_commands.repl
+
+P175 :ref:`P175_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P175_commands.repl
+
+P178 :ref:`P178_page`
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. include:: ../Plugin/P178_commands.repl
+
+
+
+.. .. *** Insert regular plugin commands above this remark! ***
+
+.. _AdafruitGFX Helper commands:
+
+AdafruitGFX Helper commands
+---------------------------
+
+For all displays that use the AdafruitGFX Helper, these commands are available in addition to the display-specific commands:
+
+.. include:: ../Plugin/AdaGFX_commands.repl
+

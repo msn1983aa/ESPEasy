@@ -2,14 +2,15 @@
 #define COMMAND_SDCARD_H
 
 #include "../../ESPEasy_common.h"
-#ifdef FEATURE_SD
+#if FEATURE_SD
 
-#include <FS.h>
+# include <FS.h>
 
-void printDirectory(File dir, int numTabs);
-const __FlashStringHelper * Command_SD_LS(struct EventStruct *event, const char* Line);
-String Command_SD_Remove(struct EventStruct *event, const char* Line);
+const __FlashStringHelper* Command_SD_LS(struct EventStruct *event,
+                                         const char         *Line);
+String                     Command_SD_Remove(struct EventStruct *event,
+                                             const char         *Line);
 
-#endif
+#endif // if FEATURE_SD
 
 #endif // COMMAND_SDCARD_H

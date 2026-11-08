@@ -1,7 +1,7 @@
 #ifndef HELPERS_CONVERT_H
 #define HELPERS_CONVERT_H
 
-#include <Arduino.h>
+#include "../../ESPEasy_common.h"
 
 /*********************************************************************************************\
    Convert bearing in degree to bearing string
@@ -20,13 +20,15 @@ float minutesToDay(int minutes);
 
 String minutesToDayHour(int minutes);
 
-String minutesToHourMinute(int minutes);
-
 String minutesToDayHourMinute(int minutes);
 
-String secondsToDayHourMinuteSecond(int seconds);
+String minutesToHourColonMinute(int minutes);
 
-String format_msec_duration(int64_t duration);
+String secondsToDayHourMinuteSecond(int seconds, bool useHMS = false);
+String secondsToDayHourMinuteSecond_ms(int64_t systemMicros, bool useHMS = false);
+
+String format_msec_duration(int64_t duration, bool useHMS = false);
+String format_msec_duration_HMS(int64_t duration);
 
 // Compute the dew point temperature, given temperature and humidity (temp in Celsius)
 // Formula: http://www.ajdesigner.com/phphumidity/dewpoint_equation_dewpoint_temperature.php
@@ -55,19 +57,13 @@ float altitudeFromPressure(float atmospheric, float seaLevel);
 /********************************************************************************************\
    In memory convert float to long
  \*********************************************************************************************/
-unsigned long float2ul(float f);
+uint32_t float2ul(float f);
 
 /********************************************************************************************\
    In memory convert long to float
  \*******************************************************************************************/
-float ul2float(unsigned long ul);
+float ul2float(uint32_t ul);
 
-/*********************************************************************************************\
-   Workaround for removing trailing white space when String() converts a float with 0 decimals
-\*********************************************************************************************/
-String toString(const float& value, uint8_t decimals);
-
-String doubleToString(const double& value, int decimals = 2, bool trimTrailingZeros = false);
 
 
 #endif // HELPERS_CONVERT_H

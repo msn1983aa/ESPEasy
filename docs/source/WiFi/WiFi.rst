@@ -4,17 +4,38 @@ WiFi
 WiFi State Machine
 ==================
 
+ESPEasy WiFi modes
+------------------
+
+
+.. figure:: StateDiagramESPEasyWiFi_mode_e.svg
+   :width: 70 %
+   :align: center
+
+   State Diagram ESPEasy WiFi_mode_e
+
+
+
+
 WiFi STA states
 ---------------
 
-#. STA off                 -> ESPEASY_WIFI_DISCONNECTED
-#. STA connecting          
-#. STA connected           -> ESPEASY_WIFI_CONNECTED
-#. STA got IP              -> ESPEASY_WIFI_GOT_IP
-#. STA connected && got IP -> ESPEASY_WIFI_SERVICES_INITIALIZED
+#. ``Disabled``                 WiFi STA radio is off.  When timeout is set to 0, no new attempt should be made (e.g. low power mode or Ethernet active)  Will only change to STA_Initializing when WiFi is allowed/required to start
+#. ``TimeOut/Error``            Error state, some action failed
+#. ``STA Initializing``         State from where we decide to start scanning or connecting
+#. ``STA Scanning``             STA mode + scanning
+#. ``STA+AP Scanning``          STA+AP mode + scanning, (scanning per channel) needs some careful handling to prevent disconnecting the connected stations.
+#. ``STA Connecting``           Connecting to an AP
+#. ``STA Reconnecting``         Reconnecting to an AP.  May need to handle some specific disconnect reasons differently from connecting for the first time.
+#. ``STA Connected``            Connected to an AP.
+#. ``STA Connected Stable``     Connected to an AP for at least 5 minutes
 
-N.B. the states are flags, meaning both "connected" and "got IP" must be set
-to be considered ESPEASY_WIFI_SERVICES_INITIALIZED
+.. figure:: StateDiagramESPEasyWiFi_STA_State_e.svg
+   :width: 70 %
+   :align: center
+
+   State Diagram ESPEasy WiFi_STA_State_e
+
 
 The flag wifiConnectAttemptNeeded indicates whether a new connect attempt is needed.
 This is set to true when:
@@ -28,9 +49,9 @@ This is set to true when:
 WiFi AP mode states
 -------------------
 
-#. AP on                        -> reset AP disable timer
-#. AP client connect/disconnect -> reset AP disable timer
-#. AP off                       -> AP disable timer = 0;
+#. ``AP on``                         reset AP disable timer
+#. ``AP client connect/disconnect``  reset AP disable timer
+#. ``AP off``                        AP disable timer = 0;
 
 AP mode will be disabled when both apply:
 
@@ -99,6 +120,8 @@ A typical beacon interval is ~100 msec (102.4 msec).
 When you try to send data to a connected WiFi station, your access point first tries to send directly to the node and if it doesn't immediately reply, the access point includes a notification for this node in such a beacon package.
 Meaning, if you send a ping (or just any package) to a WiFi connected node, the first reply typically takes half this interval. (later ping replies may receive a response more quickly as the radio may be on continuously)
 
+.. note:: On ESP32, setting the ECO mode will also reduce the CPU clock to 80 MHz. (added: 2022/12/15)
+
 If the ESP (or any other WiFi device in "power save mode") is not listening to each beacon interval, it may take longer to reach the node.
 Such a "listen interval" is called a DTIM interval and is often set between 1 and 3 for almost all WiFi devices.
 I'm not entirely sure what the ESP uses when consuming ~80 mA, but I think it has the radio on all the time, effectively receiving packets before the next beacon interval.
@@ -139,7 +162,7 @@ Case 1, your PC does not know the MAC address of the ESP:
 
 * Your PC tries to find the MAC address belonging to an IP address using an ARP packet (question is like: "Who has 1.2.3.4?")
 * ARP packets gets broadcasted to the entire network
-* If the ESP misses such an ARP request, you cannot route the IP packet to your ESP. -> fail
+* If the ESP misses such an ARP request, you cannot route the IP packet to your ESP. ->  fail
 
 Case 2, your PR does know the MAC address of the ESP, but a switch or access point does not:
 

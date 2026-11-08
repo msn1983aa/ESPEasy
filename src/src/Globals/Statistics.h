@@ -5,6 +5,11 @@
 
 #include "../../ESPEasy_common.h"
 
+#include "../DataStructs/I2CTypes.h"
+
+#include "../DataStructs/SchedulerTimerID.h"
+
+
 class String;
 
 
@@ -25,19 +30,23 @@ extern String   lowestFreeStackfunction;
 #endif
 
 extern uint8_t lastBootCause;
-extern unsigned long lastMixedSchedulerId_beforereboot;
+extern SchedulerTimerID lastMixedSchedulerId_beforereboot;
 
-extern unsigned long loopCounter;
-extern unsigned long loopCounterLast;
-extern unsigned long loopCounterMax;
-extern unsigned long lastLoopStart;
-extern unsigned long shortestLoop;
-extern unsigned long longestLoop;
-extern unsigned long loopCounter_full;
+extern uint32_t loopCounter;
+extern uint32_t loopCounterLast;
+extern uint32_t loopCounterMax;
+extern uint32_t lastLoopStart;
+extern uint32_t shortestLoop;
+extern uint32_t longestLoop;
+extern uint32_t loopCounter_full;
 extern float loop_usec_duration_total;
 
-extern unsigned long dailyResetCounter;
-extern volatile unsigned long sw_watchdog_callback_count;
+extern uint32_t dailyResetCounter;
+extern ESPEASY_VOLATILE(uint32_t) sw_watchdog_callback_count;
 
+#if FEATURE_CLEAR_I2C_STUCK
+extern I2C_bus_state I2C_state;
+extern uint32_t I2C_bus_cleared_count;
+#endif
 
 #endif // GLOBALS_STATISTICS_H

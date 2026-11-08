@@ -11,12 +11,16 @@ Welcome to ESP Easy's documentation!
    :caption: Table of Contents
 
    ESPEasy/AboutUs.rst
+   ESPEasy/ESPchips.rst
    ESPEasy/FunctionBlocks.rst
    Config/Config.rst
-   Controller/_Controller.rst
    Hardware/Hardware.rst
+   Interfaces/Interfaces.rst
+   Network/_Network.rst
+   Controller/_Controller.rst
    Plugin/_Plugin.rst
    Rules/Rules.rst
+   Notify/_Notifications.rst
    Tools/Tools.rst
    WiFi/WiFi.rst
 
@@ -34,10 +38,12 @@ Welcome to ESP Easy's documentation!
    Participate/Documentation.rst
    Participate/ProjectStructure.rst
    Reference/Flashing.rst
+   Reference/Migrate_SPIFFS_to_LittleFS.rst
    Reference/Safety.rst
    Reference/Command.rst
    Reference/Events.rst
    Reference/GPIO.rst
+   Plugin/SerialHelper.rst
    Reference/SystemVariable.rst
    Reference/URLs.rst
    Reference/RTC.rst
@@ -49,7 +55,10 @@ Welcome to ESP Easy's documentation!
    :hidden:
 
    Controller/C*
+   Notify/N*
    Plugin/P*
+   Network/NW*
+   Rules/HTTPResponseParser.rst
 
 
 Indices and tables

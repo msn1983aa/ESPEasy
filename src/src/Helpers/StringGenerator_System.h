@@ -1,19 +1,17 @@
 #ifndef HELPERS_STRINGGENERATOR_SYSTEM_H
 #define HELPERS_STRINGGENERATOR_SYSTEM_H
 
-#include <Arduino.h>
 
 #include "../../ESPEasy_common.h"
 #include "../Globals/Statistics.h"
-#include "../Helpers/Hardware.h"
 
 /*********************************************************************************************\
    ESPEasy specific strings
 \*********************************************************************************************/
 
-#ifdef USES_MQTT
+#if FEATURE_MQTT
 const __FlashStringHelper * getMQTT_state();
-#endif // USES_MQTT
+#endif // if FEATURE_MQTT
 
 /********************************************************************************************\
    Get system information
@@ -29,6 +27,8 @@ String  getResetReasonString(uint8_t icore);
 String  getResetReasonString();
 
 String  getSystemBuildString();
+
+String  formatSystemBuildNr(uint16_t buildNr);
 
 String  getPluginDescriptionString();
 

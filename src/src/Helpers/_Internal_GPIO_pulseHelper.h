@@ -17,7 +17,7 @@
   # define PULSE_STATS_ADHOC_LOG_LEVEL    LOG_LEVEL_INFO
 #endif // ifdef PULSE_STATISTIC
 
-// processing Steps in PLUGIN_TIMER_IN
+// processing Steps in PLUGIN_TASKTIMER_IN
 #define GPIO_PULSE_HELPER_PROCESSING_STEP_0             0
 #define GPIO_PULSE_HELPER_PROCESSING_STEP_1             1
 #define GPIO_PULSE_HELPER_PROCESSING_STEP_2             2
@@ -32,17 +32,28 @@
 #define MODE_INTERRUPT_MASK     0x03
 
 
+#if ESP_IDF_VERSION_MAJOR >= 5
+#include <atomic>
+
+typedef std::atomic<uint32_t> GPIO_PULSEHELPER_COUNTER_TYPE;
+#else
+typedef uint32_t GPIO_PULSEHELPER_COUNTER_TYPE;
+#endif
+
+
+
+
 // volatile counter variables for use in ISR
 struct pulseCounterISRdata_t {
   uint64_t      pulseTime              = 0; // time between previous and most recently counted edge/pulse
   uint64_t      currentStableStartTime = 0; // stores the start time of the current stable pulse.
   uint64_t      triggerTimestamp       = 0; // timestamp, when the signal change was detected in the ISR
-  unsigned long pulseCounter           = 0; // number of counted pulses within most recent data collection/sent interval
-  unsigned long pulseTotalCounter      = 0; // total number of pulses counted since last reset
+  GPIO_PULSEHELPER_COUNTER_TYPE pulseCounter           = 0; // number of counted pulses within most recent data collection/sent interval
+  GPIO_PULSEHELPER_COUNTER_TYPE pulseTotalCounter      = 0; // total number of pulses counted since last reset
   #ifdef PULSE_STATISTIC
 
   // debug/tuning variables for PULSE mode statistical logging
-  unsigned int Step0counter = 0; // counts how often step 0 was entered (volatile <- in ISR)
+  GPIO_PULSEHELPER_COUNTER_TYPE Step0counter = 0; // counts how often step 0 was entered (volatile <- in ISR)
   #endif // ifdef PULSE_STATISTIC
 
   bool initStepsFlags  = false;  // indicates that the pulse processing steps shall be initiated. One bit per task.
@@ -51,8 +62,8 @@ struct pulseCounterISRdata_t {
 
 // internal variables for PULSE mode, not used by ISR functions
 struct pulseModeData_t {
-  unsigned long pulseLowTime       = 0; // indicates the length of the most recent stable low pulse (in ms)
-  unsigned long pulseHighTime      = 0; // indicates the length of the most recent stable high pulse (in ms)
+  uint32_t pulseLowTime       = 0; // indicates the length of the most recent stable low pulse (in ms)
+  uint32_t pulseHighTime      = 0; // indicates the length of the most recent stable high pulse (in ms)
   int           currentStableState = 0; // stores current stable pin state. Set in Step 3 when new stable pulse started
   int           lastCheckState     = 0; // most recent pin state, that was read. Set in Step1,2,3
 
@@ -74,9 +85,9 @@ struct pulseModeData_t {
   unsigned int Step3IGNcounter = 0; // counts how often step 3 detected the wrong pin state (2nd verification failed)
   unsigned int Step0ODcounter  = 0; // counts how often the debounce time timed out before step 0 was reached
   long         StepOverdueMax[P003_PSTEP_MAX + 1] = { 0 }; // longest recognised overdue time per step in ms
-  uint8_t         StatsLogLevel = PULSE_STATS_ADHOC_LOG_LEVEL; // log level for regular statistics logging
+  uint8_t      StatsLogLevel = PULSE_STATS_ADHOC_LOG_LEVEL; // log level for regular statistics logging
 
-#endif
+#endif // ifdef PULSE_STATISTIC
 };
 
 struct Internal_GPIO_pulseHelper {
@@ -109,8 +120,8 @@ struct Internal_GPIO_pulseHelper {
     uint64_t        debounceTime_micros = 0; // 64 bit version of debounceTime in micoseconds
     uint16_t        debounceTime        = 0;
     taskIndex_t     taskIndex           = INVALID_TASK_INDEX;
-    uint8_t            gpio                = -1;
-    uint8_t            pullupPinMode       = INPUT_PULLUP;
+    uint8_t         gpio                = -1;
+    uint8_t         pullupPinMode       = INPUT_PULLUP;
     GPIOtriggerMode interruptPinMode    = GPIOtriggerMode::Change;
   };
 
@@ -124,19 +135,19 @@ struct Internal_GPIO_pulseHelper {
 
   bool                              init();
 
-  void                              getPulseCounters(unsigned long& pulseCounter,
-                                                     unsigned long& pulseTotalCounter,
+  void                              getPulseCounters(uint32_t& pulseCounter,
+                                                     uint32_t& pulseTotalCounter,
                                                      float        & pulseTime_msec);
 
-  void setPulseCountTotal(unsigned long pulseTotalCounter);
+  void setPulseCountTotal(uint32_t pulseTotalCounter);
 
-  void setPulseCounter(unsigned long pulseCounter,
+  void setPulseCounter(uint32_t pulseCounter,
                        float         pulseTime_msec = 0.0f);
 
   void resetPulseCounter();
 
   // Process recorded pulse data on regular intervals.
-  // Typically from PLUGIN_FIFTY_PER_SECOND or PLUGIN_TIMER_IN
+  // Typically from PLUGIN_FIFTY_PER_SECOND or PLUGIN_TASKTIMER_IN
   void doPulseStepProcessing(int pStep);
 
   pulseModeData_t pulseModeData;
@@ -153,16 +164,17 @@ private:
   void     processStablePulse(int      pinState,
                               uint64_t pulseChangeTime);
 
-
   volatile pulseCounterISRdata_t ISRdata;
   const pulseCounterConfig       config;
 
+  static void ISR_edgeCheck(Internal_GPIO_pulseHelper *self);
   static void ISR_pulseCheck(Internal_GPIO_pulseHelper *self);
 
 
-#ifdef PULSE_STATISTIC
 
 public:
+
+#ifdef PULSE_STATISTIC
 
   // adjust the statistical step counters relative to TotalCounter, in order to keep statistic correct
   void updateStatisticalCounters(int par1);
@@ -183,7 +195,7 @@ public:
   *  write collected timing values to logfile
   \*********************************************************************************************/
   void doTimingLogging(uint8_t logLevel);
-  #endif // ifdef PULSE_STATISTIC
+#endif // ifdef PULSE_STATISTIC
 };
 
 

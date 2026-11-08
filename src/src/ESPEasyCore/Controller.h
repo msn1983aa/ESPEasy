@@ -9,11 +9,11 @@
 // ********************************************************************************
 // Interface for Sending to Controllers
 // ********************************************************************************
-void sendData(struct EventStruct *event);
+void sendData(struct EventStruct *event, bool sendEvents = true);
 
 bool validUserVar(struct EventStruct *event);
 
-#ifdef USES_MQTT
+#if FEATURE_MQTT
 /*********************************************************************************************\
 * Handle incoming MQTT messages
 \*********************************************************************************************/
@@ -29,7 +29,14 @@ void MQTTDisconnect();
 /*********************************************************************************************\
 * Connect to MQTT message broker
 \*********************************************************************************************/
+#if FEATURE_MQTT_CONNECT_BACKGROUND
+bool MQTTConnectInBackground(controllerIndex_t controller_idx,
+                             bool              reportOnly);
+#endif // if FEATURE_MQTT_CONNECT_BACKGROUND
+
 bool MQTTConnect(controllerIndex_t controller_idx);
+
+void MQTTparseSystemVariablesAndSubscribe(String subscribeTo);
 
 String getMQTTclientID(const ControllerSettingsStruct& ControllerSettings);
 
@@ -45,44 +52,48 @@ String getLWT_messageConnect(const ControllerSettingsStruct& ControllerSettings)
 
 String getLWT_messageDisconnect(const ControllerSettingsStruct& ControllerSettings);
 
-#endif // USES_MQTT
+#endif // if FEATURE_MQTT
 
 /*********************************************************************************************\
 * Send status info to request source
 \*********************************************************************************************/
 void SendStatusOnlyIfNeeded(struct EventStruct *event, bool param1, uint32_t key, const String& param2, int16_t param3);
 
-bool SourceNeedsStatusUpdate(EventValueSource::Enum eventSource);
-
+void SendStatus(struct EventStruct *event, const __FlashStringHelper * status);
 void SendStatus(struct EventStruct *event, const String& status);
 
-#ifdef USES_MQTT
+#if FEATURE_MQTT
+controllerIndex_t firstEnabledMQTT_ControllerIndex();
+
 bool MQTT_queueFull(controllerIndex_t controller_idx);
 
-bool MQTTpublish(controllerIndex_t controller_idx, taskIndex_t taskIndex,  const char *topic, const char *payload, bool retained);
+bool MQTTpublish(controllerIndex_t controller_idx, taskIndex_t taskIndex,  const char *topic, const char *payload, bool retained, bool callbackTask = false);
 
 // Publish using the move operator for topic and message
-bool MQTTpublish(controllerIndex_t controller_idx, taskIndex_t taskIndex,  String&& topic, String&& payload, bool retained);
+bool MQTTpublish(controllerIndex_t controller_idx, taskIndex_t taskIndex,  String&& topic, String&& payload, bool retained, bool callbackTask = false);
 
 
 /*********************************************************************************************\
 * Send status info back to channel where request came from
 \*********************************************************************************************/
 void MQTTStatus(struct EventStruct *event, const String& status);
-#endif //USES_MQTT
+#endif //if FEATURE_MQTT
+
+# if FEATURE_MQTT_TLS || FEATURE_HTTP_TLS
+bool GetTLSfingerprint(String& fp);
+
+bool GetTLS_Certificate(String& cert, bool caRoot);
+
+#endif
 
 
-
-/*********************************************************************************************\
- * send all sensordata
-\*********************************************************************************************/
-// void SensorSendAll();
 
 
 /*********************************************************************************************\
  * send specific sensor task data, effectively calling PluginCall(PLUGIN_READ...)
 \*********************************************************************************************/
-void SensorSendTask(taskIndex_t TaskIndex);
+void SensorSendTask(struct EventStruct *event, uint32_t timestampUnixTime = 0);
+void SensorSendTask(struct EventStruct *event, uint32_t timestampUnixTime, uint32_t lasttimer);
 
 
 #endif

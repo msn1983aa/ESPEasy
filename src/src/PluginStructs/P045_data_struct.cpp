@@ -17,7 +17,9 @@
 # define MPU6050_PWR1_CLKSEL_BIT             2
 # define MPU6050_PWR1_CLKSEL_LENGTH          3
 
-P045_data_struct::P045_data_struct(uint8_t i2c_addr) : i2cAddress(i2c_addr)
+P045_data_struct::P045_data_struct(uint8_t i2c_addr) : i2cAddress(i2c_addr) {}
+
+void P045_data_struct::init()
 {
   // Initialize the MPU6050, for details look at the MPU6050 library: MPU6050::Initialize
   writeBits(MPU6050_RA_PWR_MGMT_1,   MPU6050_PWR1_CLKSEL_BIT,     MPU6050_PWR1_CLKSEL_LENGTH,     MPU6050_CLOCK_PLL_XGYRO);
@@ -78,7 +80,7 @@ void P045_data_struct::loop()
     _timer = millis();
 
     // Determine the maximum measured range of each axis
-    for (uint8_t i = 0; i < 3; i++) {
+    for (uint8_t i = 0; i < 3; ++i) {
       _axis[i][2] = abs(_axis[i][1] - _axis[i][0]);
       _axis[i][0] = _axis[i][3];
       _axis[i][1] = _axis[i][3];
@@ -107,9 +109,10 @@ void P045_data_struct::getRaw6AxisMotion(int16_t *ax, int16_t *ay, int16_t *az, 
   I2C_write8(i2cAddress, MPU6050_RA_ACCEL_XOUT_H);
   Wire.requestFrom(i2cAddress, (uint8_t)14);
 
-  for (; Wire.available(); count++) {
+  for (; Wire.available(); ++count) {
     buffer[count] = Wire.read();
   }
+  // TODO TD-er: Use getUint16FromBigEndianByteStream
   *ax = (((int16_t)buffer[0]) << 8) | buffer[1];
   *ay = (((int16_t)buffer[2]) << 8) | buffer[3];
   *az = (((int16_t)buffer[4]) << 8) | buffer[5];

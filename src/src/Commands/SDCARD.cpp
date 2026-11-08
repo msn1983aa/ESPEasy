@@ -1,22 +1,21 @@
 #include "../Commands/SDCARD.h"
 
-#include "../../ESPEasy_common.h"
 #include "../Commands/Common.h"
-#include "../ESPEasyCore/Serial.h"
-#include "../Globals/Settings.h"
 
 
+#if FEATURE_SD
+
+# include "../ESPEasyCore/Serial.h"
+# include "../Helpers/Hardware_SPI.h"
+# include "../Helpers/StringConverter.h"
+
+# include <SD.h>
 
 
-#ifdef FEATURE_SD
-
-#include <SD.h>
-
-
-void printDirectory(File dir, int numTabs)
+static void printDirectory(fs::File dir, int numTabs)
 {
   while (true) {
-    File entry = dir.openNextFile();
+    fs::File entry = dir.openNextFile();
 
     if (!entry) {
       // no more files
@@ -40,24 +39,26 @@ void printDirectory(File dir, int numTabs)
   }
 }
 
-
-const __FlashStringHelper * Command_SD_LS(struct EventStruct *event, const char* Line)
+const __FlashStringHelper* Command_SD_LS(struct EventStruct *event, const char*Line)
 {
-  File root = SD.open("/");
-  root.rewindDirectory();
-  printDirectory(root, 0);
-  root.close();
-  return return_see_serial(event);
+  if (initSDcard()) {
+    fs::File root = SD.open("/");
+    root.rewindDirectory();
+    printDirectory(root, 0);
+    root.close();
+    return return_see_serial(event);
+  }
+  return return_command_failed_flashstr();
 }
 
-String Command_SD_Remove(struct EventStruct *event, const char* Line)
+String Command_SD_Remove(struct EventStruct *event, const char*Line)
 {
   // FIXME TD-er: This one is not using parseString* function
   String fname = Line;
+
   fname = fname.substring(9);
-  String result = F("Removing:");
-  result += fname.c_str();
-  SD.remove((char*)fname.c_str());
-  return return_result(event, result);
+  SD.remove((char *)fname.c_str());
+  return return_result(event, concat(F("Removing:"), fname));
 }
-#endif
+
+#endif // if FEATURE_SD

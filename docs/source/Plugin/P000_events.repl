@@ -43,6 +43,23 @@
 
    "
    "
+   ``TaskError#<taskname>``
+   Added: 2022-06-21
+   Triggered when a tasks ``PLUGIN_READ`` caused an error.
+   The reason to trigger this error is plugin specific and this is not implemented for all plugins.
+   For example, the BMx280 plugin will trigger this event when it was unable to start a measurement, for example when the sensor does not reply or its reply is unexpected.
+   ","
+
+   .. code-block:: none
+
+        on TaskError#bme do
+          LogEntry,'TaskError task: %eventvalue1% result: %eventvalue2%'
+        endon
+
+   The first event value is the task index, the second event value is a plugin specific indicator of the error that occured.
+   N.B. The second event value can be a string.
+   "
+   "
    ``System#Wake``
    Triggered after power on.
    ","
@@ -52,6 +69,40 @@
         on System#Wake do
           GPIO,15,1
         endon
+
+   "
+   "
+   ``System#BootMode``
+   Added: 2021-10-18
+  
+   On ESP32-series only.
+
+   Event is sent right before network connection is attempted.
+
+   On normal boots (GPIO-0 is high), the ESP32 can record the state of a number of pins and make these available after boot in the ``GPIO_STRAP_REG``.
+
+   ","
+
+   .. code-block:: none
+
+        on System#BootMode do
+          LogEntry,'Boot pins: GPIO-5: %eventvalue1%, GPIO-15: %eventvalue2%, GPIO-4: %eventvalue3%, GPIO-2: %eventvalue4%'
+        endon
+
+   For the classic ESP32, the event values represent the state of these pins in the following order:
+
+   * GPIO-5: ``%eventvalue1%`` (internal pull-up, default: ``1``)
+   * GPIO-15: ``%eventvalue2%`` (internal pull-up, default: ``1``)
+   * GPIO-4: ``%eventvalue3%`` (internal pull-down, default: ``0``)
+   * GPIO-2: ``%eventvalue4%`` (internal pull-down, default: ``0``)
+
+   The standard BootMode event will be: ``System#BootMode=1,1,0,0``
+   
+   N.B. When pulling down GPIO-15 during boot, the ROM bootloader messages will be silenced.
+
+   N.B.2 Do not pull GPIO-2 high when GPIO-0 is low for programming mode.
+
+   See 'Boot Strapping Pins' documentation for the boot strapping pins for all ESP32-series chips.
 
    "
    "
@@ -76,6 +127,25 @@
 
 	   on System#Sleep do
 	    GPIO,2,0
+	   endon
+
+   "
+   "
+   ``http#hostname=404``
+   Added: 2022/07/23
+   Triggered as a 'return value' when performing a HTTP call to some host.
+   The event value is the HTTP return code.
+   The ``hostname`` is replaced by the hostname used in the HTTP call.
+   ","
+
+   .. code-block:: none
+
+	   on http#192.168.1.2 do
+       if %eventvalue1%!=200
+         // %eventvalue1% is HTTP Code
+         // %eventpar% is the part of the event after the #, thus here it is the hostname
+         LogEntry,'HTTP error: %eventvalue1% to: %eventpar%:'
+       endif
 	   endon
 
    "
@@ -128,8 +198,54 @@
 
    "
    "
+   ``p2pNode#Connected``
+
+   Added: 2024-05-01
+
+   Triggered when a new ESPEasy p2p node has been seen.
+   N.B. Only for nodes with a valid unit ID (not 0)
+
+   Eventvalues:
+
+   - Unit ID
+
+   - Node name
+
+   - Build number/date
+   ","
+
+   .. code-block:: none
+
+	   on p2pNode#Connected do
+	     LogEntry,'ESPEasy p2p node %eventvalue1% added: %eventvalue2% with build %eventvalue3%'
+	   endon
+
+   "
+   "
+   ``p2pNode#Disconnected``
+
+   Added: 2024-05-01
+  
+   Triggered when a ESPEasy p2p node has been removed from the nodes list.
+   N.B. Only for nodes with a valid unit ID (not 0)   
+
+   Eventvalues:
+
+   - Unit ID
+   ","
+
+   .. code-block:: none
+
+	   on p2pNode#Disconnected do
+	     LogEntry,`ESPEasy p2p node %eventvalue1% not seen for a while`
+	   endon
+
+   "
+   "
    ``WiFi#Connected``
    Triggered when the ESP has connected to Wi-Fi.
+
+   N.B. Similar events are also given for other network interfaces like ``ap``, ``eth`` or ``ppp``.
    ","
 
    .. code-block:: none
@@ -137,6 +253,55 @@
 	   on WiFi#Connected do
 	    SendToHTTP,url.com,80,/report.php?hash=123abc456&t=[temp2#out]
 	   endon
+
+   "
+   "
+   ``WiFi#Disconnected``
+   Triggered when the ESP has disconnected from Wi-Fi.
+
+   N.B. Similar events are also given for other network interfaces like ``ap``, ``eth`` or ``ppp``.
+   ","
+
+   .. code-block:: none
+
+	  On WiFi#Disconnected Do
+	    LongPulse,2,1,1,1,-1 // 0.5 Hz flashing of WiFi led
+	  Endon
+    
+   .. code-block:: none
+
+    On WiFi#Connected Do
+      GPIO,2,1 // Turn off WiFi led
+      SendToHTTP,url.com,80,/report.php?hash=123abc456&t=[temp2#out]
+    Endon
+
+   "
+   "
+   ``WiFi#Enabled``
+   Triggered when the network interface ``WiFi`` was enabled.
+
+   N.B. Similar events are also given for other network interfaces like ``ap``, ``eth`` or ``ppp``.
+   ","
+
+   .. code-block:: none
+
+	   on WiFi#Enabled do
+         GPIO,2,1 // Turn on WiFi led
+	   endon
+
+   "
+   "
+   ``WiFi#Disabled``
+   Triggered when the network interface ``WiFi`` was disabled.
+
+   N.B. Similar events are also given for other network interfaces like ``ap``, ``eth`` or ``ppp``.
+   ","
+
+   .. code-block:: none
+
+	  On WiFi#Disabled Do
+	    GPIO,2,0 // Turn off WiFi led
+	  Endon
 
    "
    "
@@ -165,7 +330,7 @@
 
    "
    "
-   ``WiFi#APmodeEnabled``
+   ``ap#Enabled``
    Triggered when the ESP has set the AP mode (access point) active.
    This may happen when no valid WiFi settings are found or the ESP cannot connect to the set AP, but it can also be enabled via some command.
    N.B. Sending a publish command may not be very useful on this event, since this will mainly happen when there is no WiFi connection.
@@ -173,20 +338,20 @@
 
    .. code-block:: none
 
-	   on WiFi#APmodeEnabled do
+	   on ap#Enabled do
 	    ... // Some command
 	   endon
 
    "
    "
-   ``WiFi#APmodeDisabled``
+   ``ap#Disabled``
    Triggered when the ESP has disabled the AP mode (access point).
    This can happen some time (default 60 seconds) after a WiFi connection has been made. Or disabled using some command.
    ","
 
    .. code-block:: none
 
-	   on WiFi#APmodeDisabled do
+	   on ap#Disabled do
 	    Publish,%sysname%/status,AP disabled
 	   endon
 
@@ -243,6 +408,8 @@
    "
    ``Clock#Time=``
    Triggered every minute with day and time like: Mon,12:30 or Tue,14:45. You can define triggers on specific days or all days using 'All' for days indicator. You can also use wildcards in the time setting like All,**:00 to run every hour.
+
+   For handling events to only be executed on weekdays (Mon..Fri), the day indicator 'Wrk' (work) can be used, and for weekend days (Sat, Sun), the day indicator 'Wkd' is available.
    ","
 
    .. code-block:: none
